@@ -1,0 +1,7 @@
+project_id = "mtraazefhqlhyzwpdtyn"
+
+[functions.clinical-ai]
+verify_jwt = false
+
+[functions.mp-webhook]
+verify_jwt = false

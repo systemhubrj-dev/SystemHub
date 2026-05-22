@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.check_signup_duplicate(text, text) TO anon;

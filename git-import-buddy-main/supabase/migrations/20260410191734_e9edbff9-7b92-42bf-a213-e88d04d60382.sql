@@ -1,0 +1,1 @@
+ALTER TABLE public.inventory_movements ADD COLUMN unit_cost NUMERIC;
