@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git remote *)",
+      "Bash(Get-ChildItem -Force)",
+      "Bash(mv git-import-buddy-main/* .)",
+      "Bash(mv git-import-buddy-main/.* .)",
+      "Bash(rmdir git-import-buddy-main *)"
+    ]
+  }
+}
