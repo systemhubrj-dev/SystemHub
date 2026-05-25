@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
       external_reference: `${userId}:${planId}`,
       payer_email: userEmail,
       back_url: `${origin}/dashboard/meu-plano?status=success`,
+      notification_url: "https://mtraazefhqlhyzwpdtyn.supabase.co/functions/v1/mp-webhook",
       auto_recurring: {
         frequency: 1,
         frequency_type: "months",

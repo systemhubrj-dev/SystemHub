@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
       },
       // Expira em 30 minutos para o PIX não ficar pendente eternamente
       date_of_expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      notification_url: "https://mtraazefhqlhyzwpdtyn.supabase.co/functions/v1/mp-webhook",
       metadata: { user_id: userId, plan_id: planId, payment_type: "pix_oneoff" },
     };
 
