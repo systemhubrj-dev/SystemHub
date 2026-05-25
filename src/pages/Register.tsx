@@ -18,7 +18,7 @@ export default function Register() {
   const [phone, setPhone] = useState("");
   const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
-  const [vertical, setVertical] = useState<"vet" | "nutri">("vet");
+  const vertical = "vet" as const;
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -103,22 +103,6 @@ export default function Register() {
           </CardHeader>
           <form onSubmit={handleRegister}>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Sua área de atuação</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setVertical("vet")}
-                    className={`p-3 rounded-lg border text-left transition-all ${vertical === "vet" ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-border hover:border-primary/40"}`}>
-                    <div className="text-sm font-bold">SystemHub Vet</div>
-                    <div className="text-xs text-muted-foreground">Clínicas e profissionais veterinários</div>
-                  </button>
-                  <button type="button" onClick={() => setVertical("nutri")}
-                    className={`p-3 rounded-lg border text-left transition-all ${vertical === "nutri" ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-border hover:border-primary/40"}`}>
-                    <div className="text-sm font-bold">SystemHub Nutri</div>
-                    <div className="text-xs text-muted-foreground">Nutricionistas e clínicas de nutrição</div>
-                  </button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">Esta escolha define os módulos do seu painel. Para alterar depois, fale com nosso suporte.</p>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="name">Nome completo</Label>
                 <Input id="name" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} required />

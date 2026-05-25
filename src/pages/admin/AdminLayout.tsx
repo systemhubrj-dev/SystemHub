@@ -1,10 +1,11 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { ShieldCheck, Users, Upload, ScrollText, ArrowLeft } from "lucide-react";
+import { ShieldCheck, Users, Upload, ScrollText, ArrowLeft, BarChart2 } from "lucide-react";
 import { PlatformAdminGate } from "@/components/admin/PlatformAdminGate";
 import { Button } from "@/components/ui/button";
 
 const items = [
   { to: "/admin", icon: Users, label: "Clientes", end: true },
+  { to: "/admin/analytics", icon: BarChart2, label: "Analytics" },
   { to: "/admin/import", icon: Upload, label: "Importar Excel" },
   { to: "/admin/audit", icon: ScrollText, label: "Auditoria" },
 ];

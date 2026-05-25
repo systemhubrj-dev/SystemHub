@@ -63,14 +63,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const origin = req.headers.get("origin") ?? "https://github-my-darling.lovable.app";
+    const origin = req.headers.get("origin") ?? "https://www.systemhub.app.br";
 
     const preapprovalPayload = {
       reason: plan.name,
       external_reference: `${userId}:${planId}`,
       payer_email: userEmail,
       back_url: `${origin}/dashboard/meu-plano?status=success`,
-      notification_url: "https://mtraazefhqlhyzwpdtyn.supabase.co/functions/v1/mp-webhook",
+      notification_url: "https://nktskwrwvnefpyfdpiyu.supabase.co/functions/v1/mp-webhook",
       auto_recurring: {
         frequency: 1,
         frequency_type: "months",

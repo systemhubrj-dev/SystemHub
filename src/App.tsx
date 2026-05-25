@@ -42,7 +42,14 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminClients from "./pages/admin/AdminClients";
 import AdminImport from "./pages/admin/AdminImport";
 import AdminAudit from "./pages/admin/AdminAudit";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import { usePageTracking } from "./hooks/usePageTracking";
 const queryClient = new QueryClient();
+
+function PageTracker() {
+  usePageTracking();
+  return null;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -53,6 +60,7 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <PlatformAdminProvider>
+            <PageTracker />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
@@ -63,6 +71,7 @@ const App = () => (
                 <Route index element={<AdminClients />} />
                 <Route path="import" element={<AdminImport />} />
                 <Route path="audit" element={<AdminAudit />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
               </Route>
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<DashboardHome />} />

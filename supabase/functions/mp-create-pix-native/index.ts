@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
         email: userEmail,
       },
       external_reference: `${userId}:${planId}:pix`,
-      notification_url: "https://mtraazefhqlhyzwpdtyn.supabase.co/functions/v1/mp-webhook",
+      notification_url: "https://nktskwrwvnefpyfdpiyu.supabase.co/functions/v1/mp-webhook",
       metadata: { user_id: userId, plan_id: planId, payment_type: "pix_native" },
     };
 
