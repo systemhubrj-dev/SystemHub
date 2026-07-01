@@ -1,7 +1,7 @@
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Sparkles, Building2, AlertTriangle, Clock, XCircle, CreditCard, QrCode, Zap, X, Users, Brain, Star } from "lucide-react";
+import { Check, AlertTriangle, Clock, XCircle, CreditCard, QrCode, Zap, Brain, HeartPulse, Package, Users, BarChart3, Bell, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
 import { format } from "date-fns";
@@ -11,86 +11,22 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PixPaymentDialog } from "@/components/billing/PixPaymentDialog";
 
-type PlanCard = {
-  id: "essencial" | "profissional" | "clinica";
-  name: string;
-  price: number;
-  icon: typeof Sparkles;
-  popular?: boolean;
-  highlight?: string;
-  description: string;
-  basics: string[];
-  premium: string[];
-  missing: string[];
-  noAi?: boolean;
+const VETPRO = {
+  id: "vetpro" as const,
+  name: "VetPro",
+  price: 129.90,
+  description: "Para clínicas e veterinários autônomos",
+  features: [
+    { icon: HeartPulse, label: "Prontuário, agenda e receita digital" },
+    { icon: Brain, label: "IA ilimitada — anamnese, diagnóstico e bulário" },
+    { icon: Brain, label: "Assistente veterinário por voz e texto" },
+    { icon: Package, label: "Estoque com lotes, validade e promoções" },
+    { icon: Users, label: "Equipe ilimitada com perfis e permissões" },
+    { icon: BarChart3, label: "Financeiro completo e relatórios avançados" },
+    { icon: Bell, label: "Lembretes via WhatsApp" },
+    { icon: Shield, label: "Suporte prioritário e dados seguros" },
+  ],
 };
-
-const plans: PlanCard[] = [
-  {
-    id: "essencial",
-    name: "Essencial",
-    price: 89.90,
-    icon: Sparkles,
-    description: "Para o veterinário autônomo começar",
-    basics: [
-      "1 usuário · até 200 clientes",
-      "Agenda, prontuário e receita digital",
-      "Bulário (consulta)",
-      "Caixa simples e financeiro básico",
-      "Suporte por e-mail",
-    ],
-    premium: [],
-    missing: ["IA / Assistente virtual", "Internação", "Equipe & Acessos", "Lembretes WhatsApp", "Relatórios avançados"],
-    noAi: true,
-  },
-  {
-    id: "profissional",
-    name: "Profissional",
-    price: 139.90,
-    icon: Crown,
-    popular: true,
-    highlight: "Mais escolhido",
-    description: "Clínicas pequenas e médias com equipe",
-    basics: [
-      "Clientes ilimitados",
-      "Agenda, prontuário e receita digital",
-      "Bulário completo",
-      "Caixa, financeiro e contas a pagar",
-    ],
-    premium: [
-      "🤖 IA ilimitada (anamnese, diagnóstico, bulário)",
-      "💬 Assistente virtual por voz e texto",
-      "🏥 Internação completa (SOAP, enfermagem)",
-      "📦 Estoque avançado (lotes, validade, promoções)",
-      "📊 Relatórios avançados",
-      "📱 Lembretes via WhatsApp",
-      "👥 Convide até 3 funcionários (recepcionista / estoquista / vet)",
-    ],
-    missing: ["Multi-unidades", "API", "Marca branca"],
-  },
-  {
-    id: "clinica",
-    name: "Clínica IA+",
-    price: 199.90,
-    icon: Building2,
-    highlight: "Para clínicas e hospitais",
-    description: "Operação multi-unidade sem limites",
-    basics: [
-      "Tudo do Profissional",
-      "Caixa, financeiro e contas a pagar",
-    ],
-    premium: [
-      "♾️ Equipe ilimitada com perfis e permissões",
-      "🏢 Multi-unidades em uma só conta",
-      "🧠 IA Premium (análise preditiva, exames por imagem)",
-      "📈 Dashboard gerencial executivo",
-      "🔌 API e integrações",
-      "🏷️ Marca branca (sua identidade)",
-      "🎓 Onboarding dedicado · Suporte 24h",
-    ],
-    missing: [],
-  },
-];
 
 const REJECTION_REASONS: Record<string, string> = {
   cc_rejected_high_risk: "Recusado por suspeita de fraude (risco alto). Ligue no banco emissor para liberar a compra recorrente, ou tente outro cartão / PIX.",
@@ -122,7 +58,7 @@ export default function MeuPlano() {
   const [loadingMethod, setLoadingMethod] = useState<"card" | "pix" | "pix_native" | null>(null);
   const [pixDialogOpen, setPixDialogOpen] = useState(false);
   const [pixData, setPixData] = useState<any>(null);
-  const [pixPlanName, setPixPlanName] = useState("");
+  const [pixPlanName, setPixPlanName] = useState(VETPRO.name);
   const [latestPayment, setLatestPayment] = useState<LatestPayment | null>(null);
   const [paymentDismissed, setPaymentDismissed] = useState(false);
   const [showChangePlan, setShowChangePlan] = useState(false);
@@ -186,7 +122,7 @@ export default function MeuPlano() {
         if (error) throw error;
         if (!data?.qr_code) throw new Error("QR Code não retornado");
         setPixData(data);
-        setPixPlanName(plans.find((p) => p.id === selectedPlanId)?.name || "");
+        setPixPlanName(VETPRO.name);
         setPixDialogOpen(true);
         toast.success("PIX gerado! Escaneie o QR Code.");
         setLoadingPlan(null);
@@ -213,9 +149,9 @@ export default function MeuPlano() {
   return (
     <div className="space-y-8">
       <div className="text-center max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold">Escolha o plano ideal</h1>
+        <h1 className="text-3xl font-bold">Plano VetPro</h1>
         <p className="text-muted-foreground mt-2">
-          Cobrança mensal · Cancele quando quiser · Sem fidelidade
+          Tudo incluído · Cobrança mensal · Cancele quando quiser
         </p>
       </div>
 
@@ -293,7 +229,6 @@ export default function MeuPlano() {
       )}
 
       {isActive && planId && (() => {
-        const currentPlan = plans.find((p) => p.id === planId);
         const periodEnd = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
         return (
           <div className="max-w-3xl mx-auto space-y-4">
@@ -302,17 +237,15 @@ export default function MeuPlano() {
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="space-y-1">
                     <Badge className="bg-emerald-500">✅ Plano ativo</Badge>
-                    <CardTitle className="text-2xl mt-2">{currentPlan?.name ?? planId}</CardTitle>
-                    <CardDescription>{currentPlan?.description}</CardDescription>
+                    <CardTitle className="text-2xl mt-2">{VETPRO.name}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{VETPRO.description}</p>
                   </div>
-                  {currentPlan && (
-                    <div className="text-right">
-                      <div className="text-3xl font-extrabold tracking-tight">
-                        R$ {currentPlan.price.toFixed(2).replace(".", ",")}
-                      </div>
-                      <div className="text-xs text-muted-foreground">por mês</div>
+                  <div className="text-right">
+                    <div className="text-3xl font-extrabold tracking-tight">
+                      R$ {VETPRO.price.toFixed(2).replace(".", ",")}
                     </div>
-                  )}
+                    <div className="text-xs text-muted-foreground">por mês</div>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
@@ -355,141 +288,67 @@ export default function MeuPlano() {
       )}
 
       {(!isActive || showChangePlan) && (
-      <div className="grid gap-6 md:grid-cols-3 max-w-6xl mx-auto items-start">
-        {plans.map((plan) => {
-          const isCurrent = planId === plan.id && isActive;
-          const Icon = plan.icon;
-          return (
-            <Card
-              key={plan.id}
-              className={`relative flex flex-col transition-all ${
-                plan.popular
-                  ? "border-2 border-primary shadow-2xl md:scale-[1.04] md:-mt-2 bg-gradient-to-br from-primary/5 to-background"
-                  : "border-border hover:border-primary/40"
-              } ${isCurrent ? "ring-2 ring-emerald-500" : ""}`}
+      <div className="max-w-md mx-auto">
+        <Card className="relative flex flex-col border-2 border-primary shadow-2xl shadow-primary/20 bg-gradient-to-br from-primary/5 to-background">
+          <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary px-4 py-1 text-xs font-bold shadow-md whitespace-nowrap">
+            Plano completo · Tudo incluso
+          </Badge>
+
+          <CardHeader className="text-center pb-3 pt-8">
+            <div className="mx-auto mb-3 w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+              <Brain className="h-8 w-8" />
+            </div>
+            <CardTitle className="text-2xl">{VETPRO.name}</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">{VETPRO.description}</p>
+            <div className="mt-4 flex items-baseline justify-center gap-1">
+              <span className="text-5xl font-extrabold tracking-tight">R$ {VETPRO.price.toFixed(2).replace(".", ",")}</span>
+              <span className="text-muted-foreground text-sm">/mês</span>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            {VETPRO.features.map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-3 text-sm">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Icon className="h-4 w-4 text-primary" />
+                </div>
+                <span className="font-medium flex-1">{label}</span>
+                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+              </div>
+            ))}
+          </CardContent>
+
+          <CardFooter className="flex-col gap-2 pt-4">
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={loadingPlan === VETPRO.id}
+              onClick={() => handleSelectPlan(VETPRO.id, "card")}
             >
-              {plan.popular && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary px-3 py-1 text-xs font-bold shadow-md">
-                  <Star className="h-3 w-3 mr-1 fill-current" />
-                  {plan.highlight}
-                </Badge>
-              )}
-              {!plan.popular && plan.highlight && (
-                <Badge variant="outline" className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background">
-                  {plan.highlight}
-                </Badge>
-              )}
-              {isCurrent && (
-                <Badge className="absolute -top-3 right-4 bg-emerald-500">Plano atual</Badge>
-              )}
-              {plan.noAi && (
-                <Badge variant="outline" className="absolute top-4 right-4 text-[10px] border-muted-foreground/30 text-muted-foreground">
-                  Sem IA
-                </Badge>
-              )}
-
-              <CardHeader className="text-center pb-3 pt-8">
-                <div className={`mx-auto mb-3 w-16 h-16 rounded-2xl flex items-center justify-center ${
-                  plan.popular ? "bg-gradient-to-br from-primary to-primary/60 text-primary-foreground" : "bg-primary/10 text-primary"
-                }`}>
-                  <Icon className="h-8 w-8" />
-                </div>
-                <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                <CardDescription className="min-h-[40px]">{plan.description}</CardDescription>
-                <div className="mt-4 flex items-baseline justify-center gap-1">
-                  <span className="text-5xl font-extrabold tracking-tight">R$ {plan.price.toFixed(2).replace(".", ",")}</span>
-                  <span className="text-muted-foreground text-sm">/mês</span>
-                </div>
-              </CardHeader>
-
-              <CardContent className="flex-1 space-y-4">
-                {plan.basics.length > 0 && (
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Inclui</p>
-                    <ul className="space-y-2">
-                      {plan.basics.map((f) => (
-                        <li key={f} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {plan.premium.length > 0 && (
-                  <div className="pt-3 border-t border-dashed">
-                    <p className="text-[11px] uppercase tracking-wider text-primary font-semibold mb-2 flex items-center gap-1">
-                      <Brain className="h-3 w-3" /> Recursos premium
-                    </p>
-                    <ul className="space-y-2">
-                      {plan.premium.map((f) => (
-                        <li key={f} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                          <span className="font-medium">{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {plan.missing.length > 0 && (
-                  <div className="pt-3 border-t border-dashed">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Não incluso</p>
-                    <ul className="space-y-1.5">
-                      {plan.missing.map((f) => (
-                        <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <X className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-
-              <CardFooter className="flex-col gap-2 pt-2">
-                <Button
-                  className="w-full"
-                  size="lg"
-                  variant={plan.popular ? "default" : "outline"}
-                  disabled={isCurrent || loadingPlan === plan.id}
-                  onClick={() => handleSelectPlan(plan.id, "card")}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  {isCurrent
-                    ? "Plano atual"
-                    : loadingPlan === plan.id && loadingMethod === "card"
-                    ? "Redirecionando..."
-                    : "Assinar com cartão"}
-                </Button>
-                <Button
-                  className="w-full"
-                  variant="secondary"
-                  disabled={isCurrent || loadingPlan === plan.id}
-                  onClick={() => handleSelectPlan(plan.id, "pix_native")}
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  {loadingPlan === plan.id && loadingMethod === "pix_native"
-                    ? "Gerando PIX..."
-                    : "PIX rápido (QR aqui)"}
-                </Button>
-                <Button
-                  className="w-full"
-                  variant="ghost"
-                  size="sm"
-                  disabled={isCurrent || loadingPlan === plan.id}
-                  onClick={() => handleSelectPlan(plan.id, "pix")}
-                >
-                  <QrCode className="h-3.5 w-3.5 mr-2" />
-                  {loadingPlan === plan.id && loadingMethod === "pix"
-                    ? "Abrindo..."
-                    : "PIX no Mercado Pago"}
-                </Button>
-              </CardFooter>
-            </Card>
-          );
-        })}
+              <CreditCard className="h-4 w-4 mr-2" />
+              {loadingPlan === VETPRO.id && loadingMethod === "card" ? "Redirecionando..." : "Assinar com cartão"}
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              disabled={loadingPlan === VETPRO.id}
+              onClick={() => handleSelectPlan(VETPRO.id, "pix_native")}
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              {loadingPlan === VETPRO.id && loadingMethod === "pix_native" ? "Gerando PIX..." : "PIX rápido (QR aqui)"}
+            </Button>
+            <Button
+              className="w-full"
+              variant="ghost"
+              size="sm"
+              disabled={loadingPlan === VETPRO.id}
+              onClick={() => handleSelectPlan(VETPRO.id, "pix")}
+            >
+              <QrCode className="h-3.5 w-3.5 mr-2" />
+              {loadingPlan === VETPRO.id && loadingMethod === "pix" ? "Abrindo..." : "PIX no Mercado Pago"}
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
       )}
 
