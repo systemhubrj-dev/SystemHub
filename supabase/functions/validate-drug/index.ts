@@ -2,25 +2,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { checkAiQuota, logAiUsage } from "../_shared/ai-quota.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 function sanitizeForIlike(input: string): string {
   return input.replace(/[%_\\]/g, "\\$&");
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
 
   try {
     // Auth check
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -32,14 +28,14 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     const quota = await checkAiQuota(supabase, user.id);
     if (!quota.allowed) {
       return new Response(JSON.stringify({ error: quota.message }), {
-        status: quota.status ?? 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: quota.status ?? 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
     void logAiUsage(supabase, quota.ownerId, "validate-drug");
@@ -48,7 +44,7 @@ serve(async (req) => {
     if (!drug_id || typeof drug_id !== "string") {
       return new Response(JSON.stringify({ error: "drug_id is required" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -57,7 +53,7 @@ serve(async (req) => {
     if (!uuidRegex.test(drug_id)) {
       return new Response(JSON.stringify({ error: "Invalid drug_id format" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -73,7 +69,7 @@ serve(async (req) => {
     if (fetchErr || !drug) {
       return new Response(JSON.stringify({ error: "Drug not found" }), {
         status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -89,7 +85,7 @@ serve(async (req) => {
     const isPlatformAdmin = !!isAdminRow;
     if (!isPlatformAdmin && drug.user_id !== user.id) {
       return new Response(JSON.stringify({ error: "Forbidden: você só pode validar medicamentos do seu próprio cadastro." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -193,16 +189,16 @@ Use a função validate_and_complete para retornar sua avaliação.`;
       console.error("AI gateway error:", aiResponse.status);
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       return new Response(JSON.stringify({ error: "AI validation failed", validation_status: "pending" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -246,13 +242,13 @@ Use a função validate_and_complete para retornar sua avaliação.`;
 
     return new Response(
       JSON.stringify({ validation_status: validationStatus, validation_notes: validationNotes, suggested_data: suggestedData }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error("validate-drug error:", e);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });

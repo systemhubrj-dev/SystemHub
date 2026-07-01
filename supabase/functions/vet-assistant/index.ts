@@ -1,11 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { checkAiQuota, logAiUsage } from "../_shared/ai-quota.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const SYSTEM_PROMPT = `Você é a assistente virtual do VetCare, um sistema de gestão veterinária.
 Você atende veterinários por VOZ e TEXTO. Responda SEMPRE em português brasileiro de forma natural, curta e amigável (1-2 frases).
@@ -375,14 +371,14 @@ async function executeTool(name: string, args: any, supabase: any, userId: strin
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -397,7 +393,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const userId = claimsData.claims.sub as string;
@@ -407,7 +403,7 @@ Deno.serve(async (req) => {
     if (!quota.allowed) {
       return new Response(JSON.stringify({ error: quota.message }), {
         status: quota.status ?? 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const ownerId = quota.ownerId;
@@ -442,13 +438,13 @@ Deno.serve(async (req) => {
       if (aiRes.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições atingido. Aguarde um momento." }), {
           status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       if (aiRes.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos na sua workspace." }), {
           status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       if (!aiRes.ok) {
@@ -470,7 +466,7 @@ Deno.serve(async (req) => {
         // Resposta final
         return new Response(
           JSON.stringify({ reply: msg.content || "", actions: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
 
@@ -492,13 +488,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ reply: "Operação muito complexa. Tente dividir em passos menores.", actions: [] }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("vet-assistant error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Erro inesperado" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

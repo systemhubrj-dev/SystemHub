@@ -43,6 +43,7 @@ import AdminClients from "./pages/admin/AdminClients";
 import AdminImport from "./pages/admin/AdminImport";
 import AdminAudit from "./pages/admin/AdminAudit";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import { PlatformAdminGate } from "@/components/admin/PlatformAdminGate";
 import { usePageTracking } from "./hooks/usePageTracking";
 const queryClient = new QueryClient();
 
@@ -67,7 +68,7 @@ const App = () => (
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+              <Route path="/admin" element={<ProtectedRoute><PlatformAdminGate><AdminLayout /></PlatformAdminGate></ProtectedRoute>}>
                 <Route index element={<AdminClients />} />
                 <Route path="import" element={<AdminImport />} />
                 <Route path="audit" element={<AdminAudit />} />

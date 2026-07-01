@@ -1,20 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const PLAN_PRICES: Record<string, { name: string; price: number }> = {
-  essencial: { name: "Plano Essencial", price: 89.90 },
-  profissional: { name: "Plano Profissional", price: 139.90 },
-  clinica: { name: "Plano Clínica IA+", price: 199.90 },
+  vetpro: { name: "Plano VetPro", price: 129.90 },
+  essencial: { name: "Plano VetPro", price: 129.90 },
+  profissional: { name: "Plano VetPro", price: 129.90 },
+  clinica: { name: "Plano VetPro", price: 129.90 },
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders(req) });
   }
 
   try {
@@ -22,7 +19,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -37,7 +34,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -51,7 +48,7 @@ Deno.serve(async (req) => {
     if (!plan) {
       return new Response(JSON.stringify({ error: "Plano inválido" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -59,7 +56,7 @@ Deno.serve(async (req) => {
     if (!accessToken) {
       return new Response(JSON.stringify({ error: "Mercado Pago não configurado" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -70,7 +67,7 @@ Deno.serve(async (req) => {
       external_reference: `${userId}:${planId}`,
       payer_email: userEmail,
       back_url: `${origin}/dashboard/meu-plano?status=success`,
-      notification_url: "https://nktskwrwvnefpyfdpiyu.supabase.co/functions/v1/mp-webhook",
+      notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mp-webhook`,
       auto_recurring: {
         frequency: 1,
         frequency_type: "months",
@@ -95,7 +92,7 @@ Deno.serve(async (req) => {
       console.error("MP preapproval error:", mpData);
       return new Response(
         JSON.stringify({ error: "Falha ao criar assinatura", details: mpData }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 502, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -120,13 +117,13 @@ Deno.serve(async (req) => {
         sandbox_init_point: mpData.sandbox_init_point,
         preapproval_id: mpData.id,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("mp-create-subscription error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Erro inesperado" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

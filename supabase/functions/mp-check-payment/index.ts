@@ -1,12 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const PLAN_DAYS = 30;
+
+const PLAN_PRICES: Record<string, number> = {
+  vetpro: 129.90,
+  essencial: 129.90,
+  profissional: 129.90,
+  clinica: 129.90,
+};
 
 function isPixPayment(payment: any) {
   return payment?.payment_type_id === "bank_transfer" || payment?.payment_method_id === "pix";
@@ -14,7 +17,7 @@ function isPixPayment(payment: any) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders(req) });
   }
 
   try {
@@ -22,7 +25,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -37,7 +40,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -48,7 +51,7 @@ Deno.serve(async (req) => {
     if (!paymentId) {
       return new Response(JSON.stringify({ error: "paymentId obrigatório" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -56,7 +59,7 @@ Deno.serve(async (req) => {
     if (!accessToken) {
       return new Response(JSON.stringify({ error: "MP não configurado" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -69,7 +72,7 @@ Deno.serve(async (req) => {
     if (!mpRes.ok) {
       return new Response(
         JSON.stringify({ error: "Falha ao consultar pagamento", details: mpData }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 502, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -80,6 +83,20 @@ Deno.serve(async (req) => {
     const [refUserId, refPlanId] = externalReference.split(":");
 
     if (mpData?.status === "approved" && isPixPayment(mpData) && refUserId === userId) {
+      // Validate payment amount to prevent zero-value activation attacks
+      const expectedPrice = PLAN_PRICES[refPlanId ?? "vetpro"] ?? 129.90;
+      if (Math.abs((mpData.transaction_amount ?? 0) - expectedPrice) > 0.10) {
+        console.error("mp-check-payment: amount mismatch", {
+          received: mpData.transaction_amount,
+          expected: expectedPrice,
+          paymentId,
+        });
+        return new Response(JSON.stringify({ error: "Valor do pagamento inválido" }), {
+          status: 400,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        });
+      }
+
       const adminClient = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -133,13 +150,13 @@ Deno.serve(async (req) => {
         activated,
         planId,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("mp-check-payment error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Erro inesperado" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

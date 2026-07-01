@@ -2,13 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkAiQuota, logAiUsage } from "../_shared/ai-quota.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
 
   try {
     // Validação real do JWT contra o Supabase Auth — evita consumo indevido
@@ -16,7 +13,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
       return new Response(JSON.stringify({ error: "Faça login para usar a IA Clínica." }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -25,7 +22,7 @@ serve(async (req) => {
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error("Supabase env vars ausentes");
       return new Response(JSON.stringify({ error: "Serviço indisponível" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -35,7 +32,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Sessão inválida. Faça login novamente." }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -43,7 +40,7 @@ serve(async (req) => {
     const quota = await checkAiQuota(supabaseAuth, user.id);
     if (!quota.allowed) {
       return new Response(JSON.stringify({ error: quota.message }), {
-        status: quota.status ?? 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: quota.status ?? 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -52,14 +49,14 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY ausente");
       return new Response(JSON.stringify({ error: "Serviço de IA não configurado" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     const validActions = ["diagnosis", "interactions", "protocol", "risk"];
     if (!action || !validActions.includes(action)) {
       return new Response(JSON.stringify({ error: "Ação inválida" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -167,16 +164,16 @@ Identifique:
       console.error("AI gateway error:", response.status, errText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos em Configurações > Workspace > Uso." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       return new Response(JSON.stringify({ error: "Erro na IA: " + (errText || response.statusText) }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -186,13 +183,13 @@ Identifique:
     void logAiUsage(supabaseAuth, quota.ownerId, `clinical-ai:${action}`);
 
     return new Response(JSON.stringify({ result: content }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro desconhecido";
     console.error("clinical-ai error:", msg);
     return new Response(JSON.stringify({ error: "Erro interno: " + msg }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });

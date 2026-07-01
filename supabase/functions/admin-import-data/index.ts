@@ -1,9 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const ALLOWED_ENTITIES = ["clients", "pets", "inventory_items", "services", "suppliers", "bills"] as const;
 type Entity = typeof ALLOWED_ENTITIES[number];
@@ -39,11 +36,11 @@ function clean(entity: Entity, raw: Record<string, any>) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
   try {
     const auth = req.headers.get("Authorization");
     if (!auth?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const userClient = createClient(
@@ -54,7 +51,7 @@ Deno.serve(async (req) => {
     const { data: claims } = await userClient.auth.getClaims(auth.replace("Bearer ", ""));
     const userId = claims?.claims?.sub as string | undefined;
     if (!userId) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const admin = createClient(
@@ -63,29 +60,29 @@ Deno.serve(async (req) => {
     );
     const { data: adminRow } = await admin.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
     if (!adminRow) {
-      return new Response(JSON.stringify({ error: "Forbidden — apenas admins da plataforma" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Forbidden — apenas admins da plataforma" }), { status: 403, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const body = await req.json().catch(() => ({}));
     const { targetOwnerId, entity, rows } = body as { targetOwnerId: string; entity: Entity; rows: Record<string, any>[] };
 
     if (!targetOwnerId || typeof targetOwnerId !== "string") {
-      return new Response(JSON.stringify({ error: "targetOwnerId obrigatório" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "targetOwnerId obrigatório" }), { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
     if (!ALLOWED_ENTITIES.includes(entity)) {
-      return new Response(JSON.stringify({ error: "Entidade inválida" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Entidade inválida" }), { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
     if (!Array.isArray(rows) || rows.length === 0) {
-      return new Response(JSON.stringify({ error: "Sem linhas" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Sem linhas" }), { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
     if (rows.length > 10000) {
-      return new Response(JSON.stringify({ error: "Máximo 10.000 linhas por importação" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Máximo 10.000 linhas por importação" }), { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     // Confirm target exists
     const { data: target } = await admin.auth.admin.getUserById(targetOwnerId);
     if (!target?.user) {
-      return new Response(JSON.stringify({ error: "Cliente alvo não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Cliente alvo não encontrado" }), { status: 404, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     // Pets need client_id resolution from client_name
@@ -157,13 +154,13 @@ Deno.serve(async (req) => {
     });
 
     return new Response(JSON.stringify({ inserted, failed, errors }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Erro" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });

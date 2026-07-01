@@ -1,10 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { checkAiQuota, logAiUsage } from "../_shared/ai-quota.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const SYSTEM_PROMPT = `Você é uma assistente nutricional do SystemHub Nutri.
 Gera planos alimentares personalizados em JSON estrito, em português brasileiro.
@@ -26,24 +23,24 @@ Responda SEMPRE com JSON válido no formato:
 }`;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
     const userId = claimsData.claims.sub as string;
 
     const quota = await checkAiQuota(supabase, userId);
     if (!quota.allowed) {
-      return new Response(JSON.stringify({ error: quota.message }), { status: quota.status ?? 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: quota.message }), { status: quota.status ?? 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const { mode = "meal_plan", patient = {}, extra = "" } = await req.json();
@@ -76,8 +73,8 @@ Retorne APENAS o JSON do plano alimentar.`
       }),
     });
 
-    if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições atingido." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições atingido." }), { status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
+    if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     if (!aiRes.ok) {
       const text = await aiRes.text();
       console.error("AI error:", aiRes.status, text);
@@ -87,9 +84,9 @@ Retorne APENAS o JSON do plano alimentar.`
     const content = aiData.choices?.[0]?.message?.content ?? "{}";
     let plan: any = {};
     try { plan = JSON.parse(content); } catch { plan = { title: "Plano alimentar", items: [], notes: content }; }
-    return new Response(JSON.stringify({ plan }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ plan }), { headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
   }
 });

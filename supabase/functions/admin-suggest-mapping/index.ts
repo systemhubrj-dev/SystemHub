@@ -1,16 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
   try {
     const auth = req.headers.get("Authorization");
     if (!auth?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -20,30 +17,40 @@ Deno.serve(async (req) => {
     });
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     // Only platform admins
     const admin = createClient(supabaseUrl, serviceKey);
     const { data: adm } = await admin.from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle();
     if (!adm) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const { headers, sample, fields, entity } = await req.json();
     if (!Array.isArray(headers) || !Array.isArray(fields)) {
-      return new Response(JSON.stringify({ error: "Bad payload" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Bad payload" }), { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
 
     const sys = `Você é um assistente que mapeia colunas de planilhas Excel para campos de um sistema veterinário. Receba a lista de colunas da planilha (com amostras) e a lista de campos alvo. Retorne, via tool call, o mapeamento mais provável (campo -> nome exato da coluna), ou string vazia quando não houver correspondência clara. Considere sinônimos em português e inglês (ex: "tutor", "cliente", "owner" -> name; "celular" -> phone; "data nasc" -> birth_date).`;
 
+    // Mask sample values to avoid sending PII (CPF, emails, names) to external AI
+    const maskSample = (v: any): string => {
+      if (v === undefined || v === null || v === "") return "";
+      const s = String(v);
+      if (s.length <= 3) return "***";
+      return s.slice(0, 2) + "***";
+    };
+
     const userMsg = `Entidade: ${entity}\n\nColunas da planilha:\n${headers.map((h: string) => {
-      const sampleVals = (sample ?? []).slice(0, 3).map((r: any) => r?.[h]).filter((v: any) => v !== undefined && v !== "");
+      const sampleVals = (sample ?? []).slice(0, 2)
+        .map((r: any) => maskSample(r?.[h]))
+        .filter((v: string) => v !== "");
       return `- "${h}" (exemplos: ${JSON.stringify(sampleVals)})`;
     }).join("\n")}\n\nCampos alvo:\n${fields.map((f: any) => `- ${f.key} (${f.label})${f.required ? " [OBRIGATÓRIO]" : ""}`).join("\n")}`;
 
@@ -70,7 +77,7 @@ Deno.serve(async (req) => {
 
     if (!aiRes.ok) {
       const t = await aiRes.text();
-      return new Response(JSON.stringify({ error: `AI: ${aiRes.status} ${t.slice(0, 300)}` }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: `AI: ${aiRes.status} ${t.slice(0, 300)}` }), { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     }
     const data = await aiRes.json();
     const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
@@ -83,9 +90,9 @@ Deno.serve(async (req) => {
       if (!headerSet.has(mapping[k])) mapping[k] = "";
     }
 
-    return new Response(JSON.stringify({ mapping }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ mapping }), { headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Erro" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Erro" }), { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
   }
 });

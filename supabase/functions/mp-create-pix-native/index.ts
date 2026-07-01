@@ -1,10 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const PLAN_PRICES: Record<string, { name: string; price: number }> = {
   essencial: { name: "Plano Essencial (PIX - 30 dias)", price: 89.90 },
@@ -14,7 +10,7 @@ const PLAN_PRICES: Record<string, { name: string; price: number }> = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders(req) });
   }
 
   try {
@@ -22,7 +18,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -37,7 +33,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -51,7 +47,7 @@ Deno.serve(async (req) => {
     if (!plan) {
       return new Response(JSON.stringify({ error: "Plano inválido" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -59,7 +55,7 @@ Deno.serve(async (req) => {
     if (!accessToken) {
       return new Response(JSON.stringify({ error: "Mercado Pago não configurado" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -76,7 +72,7 @@ Deno.serve(async (req) => {
         email: userEmail,
       },
       external_reference: `${userId}:${planId}:pix`,
-      notification_url: "https://nktskwrwvnefpyfdpiyu.supabase.co/functions/v1/mp-webhook",
+      notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mp-webhook`,
       metadata: { user_id: userId, plan_id: planId, payment_type: "pix_native" },
     };
 
@@ -96,7 +92,7 @@ Deno.serve(async (req) => {
       console.error("MP payment error:", mpData);
       return new Response(
         JSON.stringify({ error: "Falha ao gerar PIX", details: mpData }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 502, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -128,13 +124,13 @@ Deno.serve(async (req) => {
         amount: plan.price,
         expires_at: expirationDate,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("mp-create-pix-native error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Erro inesperado" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

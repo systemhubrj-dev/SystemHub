@@ -150,7 +150,13 @@ Deno.serve(async (req) => {
       const computed = Array.from(new Uint8Array(sigBuf))
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
-      if (computed !== v1) {
+      // Timing-safe comparison to prevent timing attacks on HMAC validation
+      const computedBytes = new TextEncoder().encode(computed);
+      const v1Bytes = new TextEncoder().encode(v1);
+      let mismatch = computedBytes.length !== v1Bytes.length ? 1 : 0;
+      const len = Math.min(computedBytes.length, v1Bytes.length);
+      for (let i = 0; i < len; i++) mismatch |= computedBytes[i] ^ v1Bytes[i];
+      if (mismatch !== 0) {
         console.warn("mp-webhook: signature mismatch");
         return new Response(JSON.stringify({ error: "invalid signature" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -238,8 +244,9 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("mp-webhook error:", err);
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
+    // Return 500 so Mercado Pago retries delivery on processing failures
+    return new Response(JSON.stringify({ error: "internal error" }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

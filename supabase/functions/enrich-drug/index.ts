@@ -2,25 +2,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { checkAiQuota, logAiUsage } from "../_shared/ai-quota.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 function sanitizeForIlike(input: string): string {
   return input.replace(/[%_\\]/g, "\\$&");
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
 
   try {
     // Auth check
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -31,14 +27,14 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     const quota = await checkAiQuota(supabase, user.id);
     if (!quota.allowed) {
       return new Response(JSON.stringify({ error: quota.message }), {
-        status: quota.status ?? 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: quota.status ?? 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
     void logAiUsage(supabase, quota.ownerId, "enrich-drug");
@@ -49,7 +45,7 @@ serve(async (req) => {
     if (!name && !active_ingredient) {
       return new Response(JSON.stringify({ error: "name or active_ingredient is required" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -145,12 +141,12 @@ Use a função enrich_drug_data para retornar os dados completos.`;
       if (status === 429 || status === 402) {
         return new Response(JSON.stringify({ error: status === 429 ? "Rate limit exceeded" : "AI credits exhausted" }), {
           status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       return new Response(JSON.stringify({ error: "AI enrichment failed" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -181,19 +177,19 @@ Use a função enrich_drug_data para retornar os dados completos.`;
       console.error("Failed to parse AI response:", parseErr);
       return new Response(JSON.stringify({ error: "Failed to parse AI response" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     return new Response(
       JSON.stringify({ enriched: enrichedData, notes: enrichNotes }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error("enrich-drug error:", e);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });

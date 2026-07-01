@@ -1,9 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 type Role = "vet" | "receptionist" | "stockist";
 
@@ -26,13 +23,13 @@ function generatePassword(): string {
 
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -45,7 +42,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -59,7 +56,7 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id);
     if (roleLookupErr) {
       return new Response(JSON.stringify({ error: "Falha ao validar permissões." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const isTeamMember = (callerRoles ?? []).some((r: any) => r.role && r.role !== "owner");
@@ -67,7 +64,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         error: "Apenas o proprietário da clínica pode cadastrar funcionários.",
       }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -79,7 +76,7 @@ Deno.serve(async (req) => {
 
     if (!email || !name || !["vet", "receptionist", "stockist"].includes(role)) {
       return new Response(JSON.stringify({ error: "Dados inválidos. Informe email, nome e cargo válido." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -88,22 +85,34 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         error: "Você não pode cadastrar a si mesmo como funcionário. Use outro email para o membro da equipe.",
       }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     if (customPassword && customPassword.length < 6) {
       return new Response(JSON.stringify({ error: "Senha deve ter no mínimo 6 caracteres." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     const password = customPassword || generatePassword();
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Procura usuário pelo email
-    const { data: list } = await admin.auth.admin.listUsers();
-    let invitedUser = list?.users?.find((u: any) => (u.email || "").toLowerCase() === email);
+    // Procura usuário pelo email via REST (evita listUsers() sem paginação que limita 1000 usuários)
+    let invitedUser: any = null;
+    try {
+      const lookupRes = await fetch(
+        `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}&per_page=1`,
+        { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+      );
+      if (lookupRes.ok) {
+        const { users } = await lookupRes.json();
+        invitedUser = (users ?? []).find((u: any) => (u.email || "").toLowerCase() === email) ?? null;
+      }
+    } catch {
+      const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000, page: 1 });
+      invitedUser = list?.users?.find((u: any) => (u.email || "").toLowerCase() === email) ?? null;
+    }
     let createdNew = false;
 
     if (!invitedUser) {
@@ -116,7 +125,7 @@ Deno.serve(async (req) => {
       });
       if (createErr) {
         return new Response(JSON.stringify({ error: createErr.message }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       invitedUser = created.user;
@@ -133,14 +142,14 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (membershipErr) {
         return new Response(JSON.stringify({ error: "Falha ao validar vínculo do funcionário." }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       if (!existingMembership) {
         return new Response(JSON.stringify({
           error: "Este email já pertence a outro usuário da plataforma. Use um email diferente para cadastrar este funcionário.",
         }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
       // Já é membro desta clínica — pode ter a senha redefinida pelo owner
@@ -149,7 +158,7 @@ Deno.serve(async (req) => {
 
     if (!invitedUser) {
       return new Response(JSON.stringify({ error: "Falha ao criar usuário." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -158,7 +167,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         error: "Você não pode cadastrar a si mesmo como funcionário.",
       }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -171,7 +180,7 @@ Deno.serve(async (req) => {
 
     if (roleErr) {
       return new Response(JSON.stringify({ error: roleErr.message }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -206,11 +215,11 @@ Deno.serve(async (req) => {
       message: createdNew
         ? "Funcionário criado! Copie e envie o login + senha para ele."
         : "Senha redefinida! Copie e envie a nova senha para ele.",
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[invite-employee] error:", err);
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Erro interno" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });
