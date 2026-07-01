@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import Index from "./pages/Index";
+import Planos from "./pages/Planos";
 import BularioPublico from "./pages/BularioPublico";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -66,6 +67,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<BularioPublico />} />
               <Route path="/sobre" element={<Index />} />
+              <Route path="/planos" element={<Planos />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
