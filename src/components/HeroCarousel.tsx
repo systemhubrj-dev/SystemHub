@@ -6,7 +6,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, Check } from "lucide-react";
 
 const SLIDES = [
   {
-    gradient: "from-[#0a1628]/95 via-[#0f2d5c]/90 to-[#1a56db]/85",
+    gradient: "from-[#0a1628]/75 via-[#0f2d5c]/65 to-[#1a56db]/55",
     glowColor: "rgba(96, 165, 250, 0.25)",
     accent: "#60a5fa",
     badge: "✦ Plano único · Tudo incluso · Sem surpresas",
@@ -32,7 +32,7 @@ const SLIDES = [
     ],
   },
   {
-    gradient: "from-[#160a2e]/95 via-[#3b0f6e]/90 to-[#7c3aed]/85",
+    gradient: "from-[#160a2e]/75 via-[#3b0f6e]/65 to-[#7c3aed]/55",
     glowColor: "rgba(192, 132, 252, 0.25)",
     accent: "#c084fc",
     badge: "✦ Inteligência Artificial Veterinária",
