@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import Index from "./pages/Index";
+import BularioPublico from "./pages/BularioPublico";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -63,7 +64,8 @@ const App = () => (
             <PlatformAdminProvider>
             <PageTracker />
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<BularioPublico />} />
+              <Route path="/sobre" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
