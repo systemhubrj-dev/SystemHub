@@ -29,7 +29,8 @@ export function translateAuthError(message: string): string {
     return "Link expirado ou inválido. Solicite um novo.";
   }
   if (msg.includes("user not found")) {
-    return "Usuário não encontrado.";
+    // Intentionally generic — revealing "user not found" enables account enumeration
+    return "E-mail ou senha incorretos.";
   }
   if (msg.includes("network") || msg.includes("failed to fetch")) {
     return "Falha de conexão. Verifique sua internet e tente novamente.";

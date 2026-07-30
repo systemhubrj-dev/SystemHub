@@ -50,7 +50,7 @@ export default function CookieConsent() {
               Usamos cookies essenciais para o funcionamento da plataforma e cookies analíticos para
               entender como você usa o System Hub. Você pode aceitar todos ou continuar apenas com os
               essenciais. Saiba mais na nossa{" "}
-              <Link to="/" className="underline underline-offset-2 hover:text-primary">
+              <Link to="/privacidade" className="underline underline-offset-2 hover:text-primary">
                 Política de Privacidade
               </Link>
               .

@@ -105,11 +105,11 @@ export default function AdminClients() {
                     <TableCell className="font-medium">{r.display_name ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{r.email ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{r.plan_id ?? "essencial"}</Badge>
+                      <Badge variant="outline" className="text-primary border-primary/40">VetPro</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={r.status === "active" ? "default" : r.status === "trialing" ? "secondary" : "destructive"}>
-                        {r.status ?? "—"}
+                        {r.status === "active" ? "Ativo" : r.status === "trialing" ? "Trial" : r.status ?? "—"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">

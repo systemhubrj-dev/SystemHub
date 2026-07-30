@@ -4,9 +4,10 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
   Pill, Beaker, Stethoscope, AlertTriangle, Ban, Zap,
-  FileText, ChevronLeft, FlaskConical, Shield
+  ChevronLeft, FlaskConical, Shield, Lock
 } from "lucide-react";
 import DoseCalculator from "./DoseCalculator";
+import { Link } from "react-router-dom";
 
 export interface DrugReferenceData {
   id: string;
@@ -26,11 +27,13 @@ export interface DrugReferenceData {
   route: string | null;
   frequency: string | null;
   concentration_mg_ml: number | null;
+  image_url: string | null;
 }
 
 interface DrugMonographProps {
   drug: DrugReferenceData;
   onBack: () => void;
+  isLoggedIn?: boolean;
 }
 
 function Section({ icon: Icon, title, content, variant }: {
@@ -40,6 +43,7 @@ function Section({ icon: Icon, title, content, variant }: {
   variant?: "warning" | "danger";
 }) {
   if (!content) return null;
+
   const colorMap = {
     warning: "text-amber-700 dark:text-amber-400",
     danger: "text-destructive",
@@ -48,20 +52,23 @@ function Section({ icon: Icon, title, content, variant }: {
     warning: "bg-amber-50 dark:bg-amber-950/20",
     danger: "bg-destructive/5",
   };
+
   return (
-    <div className={`rounded-lg p-3 ${variant ? bgMap[variant] : "bg-muted/50"}`}>
-      <div className={`text-xs font-semibold mb-1.5 flex items-center gap-1.5 ${variant ? colorMap[variant] : "text-foreground"}`}>
-        <Icon className="h-3.5 w-3.5" />
+    <div className={`rounded-xl border p-4 ${variant ? bgMap[variant] + " border-transparent" : "bg-muted/40 border-border/60"}`}>
+      <div className={`text-sm font-bold mb-3 flex items-center gap-2 ${variant ? colorMap[variant] : "text-foreground"}`}>
+        <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${variant ? bgMap[variant] : "bg-background"} border`}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
         {title}
       </div>
-      <p className={`text-sm leading-relaxed ${variant ? colorMap[variant] : "text-muted-foreground"}`}>
+      <p className={`text-sm leading-relaxed whitespace-pre-wrap ${variant ? colorMap[variant] : "text-muted-foreground"}`}>
         {content}
       </p>
     </div>
   );
 }
 
-export default function DrugMonograph({ drug, onBack }: DrugMonographProps) {
+export default function DrugMonograph({ drug, onBack, isLoggedIn = true }: DrugMonographProps) {
   return (
     <div className="space-y-4">
       <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground">
@@ -71,6 +78,16 @@ export default function DrugMonograph({ drug, onBack }: DrugMonographProps) {
 
       <Card>
         <CardHeader className="pb-3">
+          {drug.image_url && (
+            <div className="w-full mb-4 overflow-hidden rounded-lg bg-muted/30 flex items-center justify-center" style={{ maxHeight: 200 }}>
+              <img
+                src={drug.image_url}
+                alt={drug.name}
+                className="max-h-48 w-auto object-contain"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+          )}
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="text-2xl">{drug.name}</CardTitle>
@@ -100,10 +117,33 @@ export default function DrugMonograph({ drug, onBack }: DrugMonographProps) {
 
         <CardContent className="space-y-4">
           {/* Dose calculator - per species */}
-          <DoseCalculator
-            drugReferenceId={drug.id}
-            drugName={drug.name}
-          />
+          {isLoggedIn ? (
+            <DoseCalculator drugReferenceId={drug.id} drugName={drug.name} />
+          ) : (
+            <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-5 text-center space-y-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Lock className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Calculadora de Dose com IA</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Calcule doses por espécie e peso — disponível no Plano VetPro.
+                </p>
+              </div>
+              <div className="flex gap-2 justify-center">
+                <Link to="/register">
+                  <Button size="sm" className="gap-1.5 font-bold">
+                    <Zap className="h-3.5 w-3.5" />
+                    Teste grátis por 7 dias
+                  </Button>
+                </Link>
+                <Link to="/login">
+                  <Button size="sm" variant="outline">Entrar</Button>
+                </Link>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Sem cartão · R$129,90/mês após o trial</p>
+            </div>
+          )}
 
           <Separator />
 

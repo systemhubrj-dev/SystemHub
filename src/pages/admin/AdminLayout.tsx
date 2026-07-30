@@ -1,17 +1,22 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { ShieldCheck, Users, Upload, ScrollText, ArrowLeft, BarChart2 } from "lucide-react";
+import { ShieldCheck, Users, Upload, ScrollText, ArrowLeft, BarChart2, Pill, LogOut, ClipboardList, Activity } from "lucide-react";
 import { PlatformAdminGate } from "@/components/admin/PlatformAdminGate";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const items = [
-  { to: "/admin", icon: Users, label: "Clientes", end: true },
-  { to: "/admin/analytics", icon: BarChart2, label: "Analytics" },
-  { to: "/admin/import", icon: Upload, label: "Importar Excel" },
-  { to: "/admin/audit", icon: ScrollText, label: "Auditoria" },
+  { to: "/admin",             icon: Users,         label: "Clientes",        end: true },
+  { to: "/admin/ativos",      icon: Activity,      label: "Usuários Ativos" },
+  { to: "/admin/analytics",   icon: BarChart2,     label: "Analytics" },
+  { to: "/admin/bulario",     icon: Pill,          label: "Bulário" },
+  { to: "/admin/protocolos",  icon: ClipboardList, label: "Protocolos" },
+  { to: "/admin/import",      icon: Upload,        label: "Importar Excel" },
+  { to: "/admin/audit",       icon: ScrollText,    label: "Auditoria" },
 ];
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   return (
     <PlatformAdminGate>
       <div className="min-h-screen flex bg-background">
@@ -40,9 +45,12 @@ export default function AdminLayout() {
               </NavLink>
             ))}
           </nav>
-          <div className="p-2 border-t">
+          <div className="p-2 border-t space-y-1">
             <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao app
+            </Button>
+            <Button variant="ghost" size="sm" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => void signOut()}>
+              <LogOut className="w-4 h-4 mr-2" /> Sair
             </Button>
           </div>
         </aside>

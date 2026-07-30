@@ -6,6 +6,7 @@ import { SubscriptionStatusChip } from "@/components/dashboard/SubscriptionStatu
 import { VetAssistant } from "@/components/assistant/VetAssistant";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 export default function DashboardLayout() {
   const { isAdmin, loading, actingAs } = usePlatformAdmin();
@@ -31,6 +32,7 @@ export default function DashboardLayout() {
         </div>
         <VetAssistant />
       </div>
+      <OnboardingModal />
     </SidebarProvider>
   );
 }

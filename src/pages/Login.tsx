@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -11,6 +11,7 @@ import { LogIn, Eye, EyeOff } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/Logo";
 import { translateAuthError } from "@/lib/authErrors";
+import { checkRateLimit, recordFailedAttempt, clearRateLimit } from "@/lib/rateLimit";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,14 +19,32 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const submitting = useRef(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
+
+    // Client-side rate limiting (5 attempts / min → 5-min lockout)
+    const rl = checkRateLimit("login");
+    if (!rl.allowed) {
+      toast.error(`Muitas tentativas. Aguarde ${rl.waitSeconds} segundos antes de tentar novamente.`);
+      submitting.current = false;
+      return;
+    }
+
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast.error(translateAuthError(error.message));
+      const lock = recordFailedAttempt("login");
+      if (lock.locked) {
+        toast.error(`Conta bloqueada por segurança. Tente novamente em ${Math.ceil((lock.waitSeconds ?? 300) / 60)} minutos.`);
+      } else {
+        toast.error(translateAuthError(error.message));
+      }
     } else {
+      clearRateLimit("login");
       // Platform admin accounts go straight to the support panel
       let isAdmin = false;
       if (data.user) {
@@ -39,6 +58,7 @@ export default function Login() {
       navigate(isAdmin ? "/admin" : "/dashboard");
     }
     setLoading(false);
+    submitting.current = false;
   };
 
   const handleGoogleLogin = async () => {

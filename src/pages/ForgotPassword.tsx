@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Mail } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { translateAuthError } from "@/lib/authErrors";
+import { checkRateLimit, recordFailedAttempt } from "@/lib/rateLimit";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -17,15 +18,24 @@ export default function ForgotPassword() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Rate limit: 3 attempts / min → 10-min lockout
+    const rl = checkRateLimit("forgot-pw");
+    if (!rl.allowed) {
+      toast.error(`Aguarde ${rl.waitSeconds} segundos antes de solicitar outro link.`);
+      return;
+    }
+
     setLoading(true);
+    recordFailedAttempt("forgot-pw"); // count every submit to prevent spam
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) {
       toast.error(translateAuthError(error.message));
     } else {
+      // Always show success — do NOT reveal whether e-mail exists (prevents enumeration)
       setSent(true);
-      toast.success("Email de recuperação enviado!");
     }
     setLoading(false);
   };

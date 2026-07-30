@@ -408,7 +408,25 @@ Deno.serve(async (req) => {
     }
     const ownerId = quota.ownerId;
 
-    const { messages = [] } = await req.json();
+    // Reject oversized bodies
+    const contentLength = Number(req.headers.get("content-length") ?? 0);
+    if (contentLength > 65_536) { // 64 KB max
+      return new Response(JSON.stringify({ error: "Requisição muito grande." }), {
+        status: 413,
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    // Cap history to last 20 messages and each message content to 4 KB
+    const rawMessages: any[] = Array.isArray(body?.messages) ? body.messages : [];
+    const messages = rawMessages
+      .slice(-20)
+      .map((m: any) => ({
+        role: String(m?.role ?? "user").slice(0, 20),
+        content: String(m?.content ?? "").slice(0, 4096),
+      }));
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 

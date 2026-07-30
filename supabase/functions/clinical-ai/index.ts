@@ -44,7 +44,23 @@ serve(async (req) => {
       });
     }
 
-    const { action, petData, symptoms, medications, history } = await req.json();
+    // Reject oversized bodies (prevent token stuffing / abuse)
+    const contentLength = Number(req.headers.get("content-length") ?? 0);
+    if (contentLength > 32_768) { // 32 KB max
+      return new Response(JSON.stringify({ error: "Requisição muito grande." }), {
+        status: 413, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const raw = await req.json();
+    const action     = String(raw?.action ?? "").slice(0, 30);
+    const symptoms   = String(raw?.symptoms ?? "").slice(0, 2000);
+    const history    = String(raw?.history ?? "").slice(0, 2000);
+    const petData    = raw?.petData ?? {};
+    const medications: string[] = (Array.isArray(raw?.medications) ? raw.medications : [])
+      .slice(0, 20)
+      .map((m: unknown) => String(m).slice(0, 200));
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY ausente");

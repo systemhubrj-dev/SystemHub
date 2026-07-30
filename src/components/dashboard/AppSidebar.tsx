@@ -1,4 +1,4 @@
-import { Calendar, Users, DollarSign, BarChart3, Home, Settings, LogOut, PawPrint, Package, BookOpen, FileText, BedDouble, Bell, ShoppingCart, Wrench, Receipt, Users2, Trash2, CreditCard, Truck, ShieldCheck, LifeBuoy, Apple } from "lucide-react";
+import { Calendar, Users, DollarSign, BarChart3, Home, Settings, LogOut, PawPrint, Package, BookOpen, FileText, BedDouble, Bell, ShoppingCart, Wrench, Receipt, Users2, Trash2, CreditCard, Truck, ShieldCheck, LifeBuoy, Apple, ClipboardList } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,6 +53,7 @@ const buildMenuGroups = (vertical: VerticalId, subjectPlural: string, clientPlur
       { title: "Documentos", url: "/dashboard/documentos", icon: FileText, perm: "documentos" },
       { title: "Internação", url: "/dashboard/internacao", icon: BedDouble, perm: "internacao", verticals: ["vet"] },
       { title: "Bulário", url: "/dashboard/bulario", icon: BookOpen, perm: "bulario", verticals: ["vet"] },
+      { title: "Protocolos", url: "/dashboard/protocolos", icon: ClipboardList, perm: "bulario", verticals: ["vet"] },
     ],
   },
   {

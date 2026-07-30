@@ -1,9 +1,21 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { Menu, X, ArrowRight, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `text-sm font-semibold px-4 py-2 rounded-full transition-colors ${
+    isActive
+      ? "bg-primary text-white shadow-sm"
+      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+  }`;
+
+const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `block text-sm py-2 font-medium transition-colors ${
+    isActive ? "text-primary font-bold" : "text-muted-foreground"
+  }`;
 
 export function PublicHeader() {
   const [open, setOpen] = useState(false);
@@ -20,15 +32,9 @@ export function PublicHeader() {
 
           {/* Nav links — desktop */}
           <nav className="hidden md:flex items-center gap-1 flex-1 justify-center">
-            <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2 rounded-md hover:bg-muted transition-colors">
-              Bulário
-            </Link>
-            <Link to="/sobre" className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2 rounded-md hover:bg-muted transition-colors">
-              Sobre
-            </Link>
-            <Link to="/planos" className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2 rounded-md hover:bg-muted transition-colors">
-              Planos
-            </Link>
+            <NavLink to="/" end className={navLinkClass}>Bulário</NavLink>
+            <NavLink to="/sobre" className={navLinkClass}>Sobre</NavLink>
+            <NavLink to="/planos" className={navLinkClass}>Planos</NavLink>
           </nav>
 
           {/* Actions */}
@@ -68,9 +74,9 @@ export function PublicHeader() {
 
       {open && (
         <div className="md:hidden border-t bg-white px-4 pb-4 pt-3 space-y-1 shadow-md">
-          <Link to="/" className="block text-sm py-2 text-muted-foreground" onClick={() => setOpen(false)}>Bulário</Link>
-          <Link to="/sobre" className="block text-sm py-2 text-muted-foreground" onClick={() => setOpen(false)}>Sobre</Link>
-          <Link to="/planos" className="block text-sm py-2 text-muted-foreground" onClick={() => setOpen(false)}>Planos</Link>
+          <NavLink to="/" end className={mobileNavLinkClass} onClick={() => setOpen(false)}>Bulário</NavLink>
+          <NavLink to="/sobre" className={mobileNavLinkClass} onClick={() => setOpen(false)}>Sobre</NavLink>
+          <NavLink to="/planos" className={mobileNavLinkClass} onClick={() => setOpen(false)}>Planos</NavLink>
           <div className="pt-2 flex flex-col gap-2 border-t">
             {user ? (
               <Link to="/dashboard"><Button size="sm" className="w-full">Ir para o sistema</Button></Link>

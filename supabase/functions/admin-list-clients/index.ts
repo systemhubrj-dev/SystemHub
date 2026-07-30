@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
         status: sMap.get(u.id)?.status ?? null,
         trial_ends_at: sMap.get(u.id)?.trial_ends_at ?? null,
         created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
       }))
       .sort((a, b) => (a.email || "").localeCompare(b.email || ""));
 

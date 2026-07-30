@@ -1,13 +1,15 @@
 import { useEffect, useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BookOpen, Search, Pill, FlaskConical,
-  Calculator, ChevronRight, Star, Heart
+  Calculator, ChevronRight, Star, Plus, UserPlus
 } from "lucide-react";
 import DrugMonograph, { type DrugReferenceData } from "@/components/bulario/DrugMonograph";
 import DrugForm, { emptyForm, type DrugFormData } from "@/components/bulario/DrugForm";
@@ -101,14 +103,50 @@ export default function Bulario() {
   }, [drugs, search, filterClass, filterSpecies, showFavorites, favoriteIds]);
 
   const handleSaveDrug = async () => {
-    if (!user || !drugForm.name.trim() || !drugForm.active_ingredient.trim()) {
-      toast.error("Nome e princípio ativo são obrigatórios");
+    if (!user) {
+      toast.error("Crie uma conta para cadastrar medicamentos");
       return;
     }
+    const name = drugForm.name.trim();
+    const active = drugForm.active_ingredient.trim();
+
+    // ── Campo obrigatórios ────────────────────────────────────
+    if (!name || !active) {
+      toast.error("Nome genérico e princípio ativo são obrigatórios");
+      return;
+    }
+
+    // ── Aviso de completude ───────────────────────────────────
+    const missing: string[] = [];
+    if (!drugForm.dosage.trim())   missing.push("posologia");
+    if (!drugForm.species.trim())  missing.push("espécies indicadas");
+    if (!drugForm.indications.trim()) missing.push("indicações");
+    if (missing.length > 0) {
+      toast.warning(
+        `Dados incompletos: ${missing.join(", ")}. Use a IA para preencher automaticamente.`,
+        { duration: 5000 }
+      );
+    }
+
+    // ── Verificação de duplicata no bulário oficial ───────────
+    const { data: existing } = await supabase
+      .from("drug_reference")
+      .select("id, name")
+      .ilike("name", name)
+      .maybeSingle();
+
+    if (existing) {
+      toast.info(
+        `"${existing.name}" já existe no bulário oficial. Seu cadastro ficará no catálogo particular da sua clínica.`,
+        { duration: 6000 }
+      );
+    }
+
+    // ── Salva no catálogo da clínica ──────────────────────────
     const { error } = await supabase.from("drug_catalog").insert({
       user_id: user.id,
-      name: drugForm.name.trim(),
-      active_ingredient: drugForm.active_ingredient.trim(),
+      name,
+      active_ingredient: active,
       commercial_name: drugForm.commercial_name || null,
       drug_class: drugForm.drug_class || null,
       species: drugForm.species || null,
@@ -122,14 +160,14 @@ export default function Bulario() {
       notes: drugForm.notes || null,
       created_by_name: user.email,
     });
-    if (error) { toast.error("Erro: " + error.message); return; }
-    toast.success("Medicamento cadastrado no bulário!");
+    if (error) { toast.error("Erro ao salvar: " + error.message); return; }
+    toast.success("Medicamento salvo no catálogo da sua clínica!");
     setDrugFormOpen(false);
     setDrugForm({ ...emptyForm });
   };
 
   if (selectedDrug) {
-    return <DrugMonograph drug={selectedDrug} onBack={() => setSelectedDrug(null)} />;
+    return <DrugMonograph drug={selectedDrug} onBack={() => setSelectedDrug(null)} isLoggedIn={!!user} />;
   }
 
   return (
@@ -139,14 +177,23 @@ export default function Bulario() {
           <BookOpen className="h-6 w-6" />Bulário Veterinário
         </h1>
         <div className="ml-auto">
-          <DrugForm
-            open={drugFormOpen}
-            onOpenChange={(o) => { setDrugFormOpen(o); if (!o) setDrugForm({ ...emptyForm }); }}
-            form={drugForm}
-            setForm={setDrugForm}
-            editId={null}
-            onSave={handleSaveDrug}
-          />
+          {user ? (
+            <DrugForm
+              open={drugFormOpen}
+              onOpenChange={(o) => { setDrugFormOpen(o); if (!o) setDrugForm({ ...emptyForm }); }}
+              form={drugForm}
+              setForm={setDrugForm}
+              editId={null}
+              onSave={handleSaveDrug}
+            />
+          ) : (
+            <Link to="/register">
+              <Button size="sm" variant="outline" className="gap-1.5">
+                <UserPlus className="h-4 w-4" />
+                Criar conta para cadastrar
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -175,7 +222,6 @@ export default function Bulario() {
           placeholder="Buscar medicamento por nome, princípio ativo ou indicação..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          autoFocus
         />
       </div>
 

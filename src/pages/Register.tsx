@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,15 +21,20 @@ export default function Register() {
   const vertical = "vet" as const;
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const submitting = useRef(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     if (password.length < 6) {
       toast.error("A senha deve ter pelo menos 6 caracteres");
+      submitting.current = false;
       return;
     }
     if (!validateCPF(cpf)) {
       toast.error("CPF inválido. Verifique o número digitado.");
+      submitting.current = false;
       return;
     }
     const cleanCPF = cpf.replace(/\D/g, "");
@@ -45,23 +50,15 @@ export default function Register() {
     if (dupError) {
       toast.error("Não foi possível validar o cadastro. Tente novamente.");
       setLoading(false);
+      submitting.current = false;
       return;
     }
 
     const dupResult = dup as { email_exists?: boolean; cpf_exists?: boolean } | null;
-    if (dupResult?.email_exists && dupResult?.cpf_exists) {
-      toast.error("Este e-mail e CPF já estão cadastrados na plataforma. Faça login ou recupere sua senha.");
+    if (dupResult?.email_exists || dupResult?.cpf_exists) {
+      toast.error("Já existe uma conta com estes dados. Faça login ou recupere sua senha.");
       setLoading(false);
-      return;
-    }
-    if (dupResult?.email_exists) {
-      toast.error("Este e-mail já está cadastrado. Use outro e-mail ou recupere sua senha.");
-      setLoading(false);
-      return;
-    }
-    if (dupResult?.cpf_exists) {
-      toast.error("Este CPF já está cadastrado na plataforma.");
-      setLoading(false);
+      submitting.current = false;
       return;
     }
 
@@ -87,6 +84,7 @@ export default function Register() {
       navigate("/login");
     }
     setLoading(false);
+    submitting.current = false;
   };
 
   return (
