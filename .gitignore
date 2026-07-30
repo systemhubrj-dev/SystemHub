@@ -27,3 +27,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel / Supabase local state
+.vercel/
+supabase/.temp/
+supabase/_all_migrations.sql
+
+# Claude settings (private)
+.claude/
