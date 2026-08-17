@@ -170,6 +170,22 @@ const TOOLS = [
   },
 ];
 
+/** Bloqueia perguntas claramente fora do escopo veterinário/clínica antes de gastar tokens */
+function isVetRelated(text: string): boolean {
+  const offTopic = [
+    /receita (de comida|culin[aá]ria|bolo|p[aã]o|torta|macarr[aã]o)/i,
+    /futebol|basquete|v[oô]lei|placar|gol\b|campeonato\b/i,
+    /pol[ií]tica|presidente|elei[çc][aã]o|partido pol[ií]/i,
+    /li[çc][aã]o de casa|tarefa escolar|matem[aá]tica escolar/i,
+    /previs[aã]o do tempo|temperatura (amanha|hoje|clima)/i,
+    /s[eé]rie (de tv|netflix|amazon)|epis[oó]dio\b|temporada\b/i,
+    /letra de m[uú]sica|cifra musical|acorde\b/i,
+    /criptomoeda|bitcoin|ethereum|nft\b|bolsa de valores/i,
+    /receita federal|imposto de renda|declaração ir\b/i,
+  ];
+  return !offTopic.some(p => p.test(text));
+}
+
 async function executeTool(name: string, args: any, supabase: any, userId: string) {
   switch (name) {
     case "add_inventory": {
@@ -427,41 +443,54 @@ Deno.serve(async (req) => {
         content: String(m?.content ?? "").slice(0, 4096),
       }));
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY não configurada");
 
-    // Loga 1 uso de IA na clínica do dono
+    // Topic guard: rejeita antes de gastar tokens
+    const lastUserMsg = messages.filter(m => m.role === "user").at(-1)?.content ?? "";
+    if (!isVetRelated(lastUserMsg)) {
+      return new Response(
+        JSON.stringify({ reply: "Só consigo ajudar com assuntos relacionados à veterinária e gestão da sua clínica. Como posso te ajudar?" }),
+        { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
+      );
+    }
+
     void logAiUsage(supabase, ownerId, "vet-assistant");
 
-    const conversation: any[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...messages,
-    ];
+    // Convert OpenAI tool format to Anthropic format
+    const anthropicTools = TOOLS.map((t: any) => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters,
+    }));
+
+    // Build Anthropic messages (no system role in messages array)
+    const anthropicMessages: any[] = messages.map((m: any) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: m.content,
+    }));
 
     // Loop de tool-calling (até 5 iterações)
     for (let iter = 0; iter < 5; iter++) {
-      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: conversation,
-          tools: TOOLS,
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1024,
+          system: SYSTEM_PROMPT,
+          messages: anthropicMessages,
+          tools: anthropicTools,
         }),
       });
 
       if (aiRes.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições atingido. Aguarde um momento." }), {
           status: 429,
-          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
-        });
-      }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos na sua workspace." }), {
-          status: 402,
           headers: { ...corsHeaders(req), "Content-Type": "application/json" },
         });
       }
@@ -472,36 +501,37 @@ Deno.serve(async (req) => {
       }
 
       const aiData = await aiRes.json();
-      const choice = aiData.choices?.[0];
-      const msg = choice?.message;
+      const content: any[] = aiData.content ?? [];
+      const stopReason: string = aiData.stop_reason ?? "";
 
-      if (!msg) throw new Error("Resposta vazia da IA");
+      // Add assistant message to history
+      anthropicMessages.push({ role: "assistant", content });
 
-      conversation.push(msg);
-
-      const toolCalls = msg.tool_calls;
-      if (!toolCalls || toolCalls.length === 0) {
-        // Resposta final
+      if (stopReason !== "tool_use") {
+        // Resposta final — pega o primeiro bloco de texto
+        const textBlock = content.find((b: any) => b.type === "text");
         return new Response(
-          JSON.stringify({ reply: msg.content || "", actions: [] }),
+          JSON.stringify({ reply: textBlock?.text || "", actions: [] }),
           { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
 
-      // Executa cada tool
-      const actionsExecuted: any[] = [];
-      for (const tc of toolCalls) {
-        const fnName = tc.function?.name;
-        let args: any = {};
-        try { args = JSON.parse(tc.function?.arguments || "{}"); } catch {}
+      // Executa cada tool_use block
+      const toolResults: any[] = [];
+      for (const block of content) {
+        if (block.type !== "tool_use") continue;
+        const fnName = block.name;
+        const args = block.input ?? {};
         const result = await executeTool(fnName, args, supabase, ownerId);
-        actionsExecuted.push({ tool: fnName, args, result });
-        conversation.push({
-          role: "tool",
-          tool_call_id: tc.id,
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: block.id,
           content: JSON.stringify(result),
         });
       }
+
+      // Add tool results as user message
+      anthropicMessages.push({ role: "user", content: toolResults });
     }
 
     return new Response(

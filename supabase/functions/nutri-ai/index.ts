@@ -44,8 +44,9 @@ Deno.serve(async (req) => {
     }
 
     const { mode = "meal_plan", patient = {}, extra = "" } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY não configurada");
 
     void logAiUsage(supabase, quota.ownerId, "nutri-ai");
 
@@ -60,28 +61,32 @@ Alergias: ${patient.allergies ?? "nenhuma"}
 Condições médicas: ${patient.conditions ?? "nenhuma"}
 Instruções extras: ${extra || "—"}
 
-Retorne APENAS o JSON do plano alimentar.`
+Retorne APENAS o JSON do plano alimentar, sem explicações adicionais.`
       : `Resuma a evolução do paciente em até 5 linhas: ${JSON.stringify(patient)}`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
-        response_format: { type: "json_object" },
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
       }),
     });
 
     if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições atingido." }), { status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
-    if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } });
     if (!aiRes.ok) {
       const text = await aiRes.text();
       console.error("AI error:", aiRes.status, text);
       throw new Error("Falha na IA");
     }
     const aiData = await aiRes.json();
-    const content = aiData.choices?.[0]?.message?.content ?? "{}";
+    const content = aiData.content?.[0]?.text ?? "{}";
     let plan: any = {};
     try { plan = JSON.parse(content); } catch { plan = { title: "Plano alimentar", items: [], notes: content }; }
     return new Response(JSON.stringify({ plan }), { headers: { ...corsHeaders(req), "Content-Type": "application/json" } });

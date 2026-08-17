@@ -49,7 +49,12 @@ serve(async (req) => {
       });
     }
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) {
+      return new Response(JSON.stringify({ error: "Serviço de IA não configurado" }), {
+        status: 503, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
 
     // Search reference DB for context using sanitized input
     const searchTerm = sanitizeForIlike((name || active_ingredient || "").trim().toLowerCase());
@@ -91,47 +96,43 @@ INSTRUÇÕES:
 
 Use a função enrich_drug_data para retornar os dados completos.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "Você é um farmacologista veterinário. Complete e corrija dados de medicamentos. Responda em português." },
-          { role: "user", content: prompt },
-        ],
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        system: "Você é um farmacologista veterinário. Complete e corrija dados de medicamentos. Responda em português.",
+        messages: [{ role: "user", content: prompt }],
         tools: [
           {
-            type: "function",
-            function: {
-              name: "enrich_drug_data",
-              description: "Retorna dados completos e corrigidos do medicamento",
-              parameters: {
-                type: "object",
-                properties: {
-                  name: { type: "string", description: "Nome genérico correto" },
-                  commercial_name: { type: "string", description: "Nomes comerciais conhecidos" },
-                  active_ingredient: { type: "string", description: "Princípio ativo correto" },
-                  drug_class: { type: "string", description: "Classe farmacológica" },
-                  species: { type: "string", description: "Espécies indicadas" },
-                  indications: { type: "string", description: "Indicações clínicas" },
-                  dosage: { type: "string", description: "Posologia detalhada por espécie" },
-                  contraindications: { type: "string", description: "Contraindicações" },
-                  adverse_effects: { type: "string", description: "Efeitos adversos" },
-                  interactions: { type: "string", description: "Interações medicamentosas" },
-                  withdrawal_period: { type: "string", description: "Período de carência" },
-                  notes: { type: "string", description: "Explicação das correções/adições feitas" },
-                },
-                required: ["name", "active_ingredient", "notes"],
-                additionalProperties: false,
+            name: "enrich_drug_data",
+            description: "Retorna dados completos e corrigidos do medicamento",
+            input_schema: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Nome genérico correto" },
+                commercial_name: { type: "string", description: "Nomes comerciais conhecidos" },
+                active_ingredient: { type: "string", description: "Princípio ativo correto" },
+                drug_class: { type: "string", description: "Classe farmacológica" },
+                species: { type: "string", description: "Espécies indicadas" },
+                indications: { type: "string", description: "Indicações clínicas" },
+                dosage: { type: "string", description: "Posologia detalhada por espécie" },
+                contraindications: { type: "string", description: "Contraindicações" },
+                adverse_effects: { type: "string", description: "Efeitos adversos" },
+                interactions: { type: "string", description: "Interações medicamentosas" },
+                withdrawal_period: { type: "string", description: "Período de carência" },
+                notes: { type: "string", description: "Explicação das correções/adições feitas" },
               },
+              required: ["name", "active_ingredient", "notes"],
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "enrich_drug_data" } },
+        tool_choice: { type: "tool", name: "enrich_drug_data" },
       }),
     });
 
@@ -155,9 +156,9 @@ Use a função enrich_drug_data para retornar os dados completos.`;
     let enrichNotes = "";
 
     try {
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      if (toolCall?.function?.arguments) {
-        const args = JSON.parse(toolCall.function.arguments);
+      const toolUse = aiData.content?.find((b: any) => b.type === "tool_use");
+      if (toolUse?.input) {
+        const args = toolUse.input;
         enrichNotes = args.notes || "";
         enrichedData = {
           name: args.name || name || "",

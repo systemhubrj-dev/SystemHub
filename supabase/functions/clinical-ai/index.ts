@@ -8,8 +8,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
 
   try {
-    // Validação real do JWT contra o Supabase Auth — evita consumo indevido
-    // de créditos de IA por tokens forjados/expirados.
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
       return new Response(JSON.stringify({ error: "Faça login para usar a IA Clínica." }), {
@@ -36,7 +34,6 @@ serve(async (req) => {
       });
     }
 
-    // Quota check
     const quota = await checkAiQuota(supabaseAuth, user.id);
     if (!quota.allowed) {
       return new Response(JSON.stringify({ error: quota.message }), {
@@ -44,9 +41,8 @@ serve(async (req) => {
       });
     }
 
-    // Reject oversized bodies (prevent token stuffing / abuse)
     const contentLength = Number(req.headers.get("content-length") ?? 0);
-    if (contentLength > 32_768) { // 32 KB max
+    if (contentLength > 32_768) {
       return new Response(JSON.stringify({ error: "Requisição muito grande." }), {
         status: 413, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
@@ -61,11 +57,13 @@ serve(async (req) => {
       .slice(0, 20)
       .map((m: unknown) => String(m).slice(0, 200));
 
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY ausente");
-      return new Response(JSON.stringify({ error: "Serviço de IA não configurado" }), {
-        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+
+    if (!ANTHROPIC_API_KEY && !LOVABLE_API_KEY) {
+      console.error("Nenhuma chave de IA configurada (ANTHROPIC_API_KEY ou LOVABLE_API_KEY)");
+      return new Response(JSON.stringify({ error: "Serviço de IA não configurado. Contate o suporte." }), {
+        status: 503, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -162,39 +160,76 @@ Identifique:
 
     console.log(`[clinical-ai] action=${action} species=${petData?.species}`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        stream: false,
-      }),
-    });
+    let content: string;
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      console.error("AI gateway error:", response.status, errText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), {
-          status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos em Configurações > Workspace > Uso." }), {
-          status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "Erro na IA: " + (errText || response.statusText) }), {
-        status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+    if (ANTHROPIC_API_KEY) {
+      // Usa Anthropic Claude como provider principal
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 2048,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
       });
-    }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "Sem resposta";
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        console.error("Anthropic API error:", response.status, errText);
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), {
+            status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: "Erro na IA. Tente novamente." }), {
+          status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await response.json();
+      content = data.content?.[0]?.text || "Sem resposta";
+    } else {
+      // Fallback: Lovable gateway
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        console.error("AI gateway error:", response.status, errText);
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), {
+            status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), {
+            status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: "Erro na IA: " + (errText || response.statusText) }), {
+          status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await response.json();
+      content = data.choices?.[0]?.message?.content || "Sem resposta";
+    }
 
     void logAiUsage(supabaseAuth, quota.ownerId, `clinical-ai:${action}`);
 

@@ -11,8 +11,8 @@ import { checkAiQuota, logAiUsage } from "../_shared/ai-quota.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
-const LOVABLE_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-haiku-4-5-20251001";
 
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 
@@ -52,46 +52,99 @@ Deno.serve(async (req) => {
     if (!quota.allowed) return json({ error: quota.message }, quota.status ?? 402);
     const ownerId = quota.ownerId;
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return json({ error: "LOVABLE_API_KEY ausente" }, 500);
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!apiKey) return json({ error: "ANTHROPIC_API_KEY ausente" }, 500, req);
 
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "chat");
 
     void logAiUsage(supabase, ownerId, `cash-ai:${action}`);
 
-    if (action === "parse")    return await handleParse(supabase, userId, body, apiKey);
-    if (action === "suggest")  return await handleSuggest(supabase, userId, body, apiKey);
-    if (action === "summary")  return await handleSummary(supabase, userId, body, apiKey);
-    if (action === "validate") return await handleValidate(supabase, userId, body, apiKey);
-    return await handleChat(supabase, userId, body, apiKey);
+    if (action === "parse")    return await handleParse(supabase, userId, body, apiKey, req);
+    if (action === "suggest")  return await handleSuggest(supabase, userId, body, apiKey, req);
+    if (action === "summary")  return await handleSummary(supabase, userId, body, apiKey, req);
+    if (action === "validate") return await handleValidate(supabase, userId, body, apiKey, req);
+    return await handleChat(supabase, userId, body, apiKey, req);
   } catch (err) {
     console.error("cash-ai error:", err);
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
   }
 });
 
-function json(data: any, status = 200) {
+/** Bloqueia perguntas claramente fora do escopo da clínica veterinária */
+function isVetRelated(text: string): boolean {
+  const offTopic = [
+    /receita (de comida|culin[aá]ria|bolo|p[aã]o|torta)/i,
+    /futebol|basquete|v[oô]lei|placar|gol\b|campeonato\b/i,
+    /pol[ií]tica|presidente|elei[çc][aã]o|partido pol[ií]/i,
+    /li[çc][aã]o de casa|tarefa escolar/i,
+    /previs[aã]o do tempo|temperatura (amanha|hoje|clima)/i,
+    /s[eé]rie (de tv|netflix|amazon)|epis[oó]dio\b/i,
+    /criptomoeda|bitcoin|ethereum|nft\b/i,
+  ];
+  return !offTopic.some(p => p.test(text));
+}
+
+function json(data: any, status = 200, request?: Request) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+    headers: { ...corsHeaders(request ?? new Request("http://localhost")), "Content-Type": "application/json" },
   });
 }
 
-async function callAI(apiKey: string, messages: Msg[], tools?: any, tool_choice?: any) {
-  const res = await fetch(LOVABLE_API, {
+async function callAI(apiKey: string, messages: Msg[], tools?: any, forceTool?: string) {
+  // Separate system message from user/assistant messages
+  const systemMsg = messages.find(m => m.role === "system");
+  const chatMessages = messages.filter(m => m.role !== "system");
+
+  const body: any = {
+    model: MODEL,
+    max_tokens: 1024,
+    messages: chatMessages,
+  };
+  if (systemMsg) body.system = systemMsg.content;
+
+  if (tools) {
+    // Convert OpenAI tool format to Anthropic format
+    body.tools = tools.map((t: any) => ({
+      name: t.function?.name ?? t.name,
+      description: t.function?.description ?? t.description,
+      input_schema: t.function?.parameters ?? t.input_schema,
+    }));
+    if (forceTool) body.tool_choice = { type: "tool", name: forceTool };
+  }
+
+  const res = await fetch(ANTHROPIC_API, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, ...(tools ? { tools, tool_choice } : {}) }),
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
   if (res.status === 429) return { error: "Limite de uso atingido. Tente em alguns segundos." };
-  if (res.status === 402) return { error: "Créditos esgotados. Adicione créditos ao workspace." };
   if (!res.ok) {
     const t = await res.text();
     console.error("AI error:", res.status, t);
     return { error: "Erro no provedor de IA" };
   }
-  return await res.json();
+  const data = await res.json();
+  // Normalize response: extract text or tool_use from Anthropic content blocks
+  const textBlock = data.content?.find((b: any) => b.type === "text");
+  const toolBlock = data.content?.find((b: any) => b.type === "tool_use");
+  return {
+    _raw: data,
+    choices: [{
+      message: {
+        content: textBlock?.text ?? null,
+        tool_calls: toolBlock ? [{
+          id: toolBlock.id,
+          function: { name: toolBlock.name, arguments: JSON.stringify(toolBlock.input) },
+        }] : undefined,
+      },
+    }],
+  };
 }
 
 async function loadCatalog(supabase: any, userId: string) {
@@ -105,7 +158,7 @@ async function loadCatalog(supabase: any, userId: string) {
   };
 }
 
-async function handleParse(supabase: any, userId: string, body: any, apiKey: string) {
+async function handleParse(supabase: any, userId: string, body: any, apiKey: string, req: Request) {
   const text: string = String(body?.text ?? "").trim();
   if (!text) return json({ items: [], message: "Texto vazio" });
 
@@ -158,15 +211,15 @@ async function handleParse(supabase: any, userId: string, body: any, apiKey: str
     { role: "user", content: text },
   ];
 
-  const ai = await callAI(apiKey, messages, tools, { type: "function", function: { name: "build_cart" } });
-  if ((ai as any).error) return json(ai, 200);
+  const ai = await callAI(apiKey, messages, tools, "build_cart");
+  if ((ai as any).error) return json(ai, 200, req);
   const call = ai?.choices?.[0]?.message?.tool_calls?.[0];
   const args = call ? safeJSON(call.function?.arguments) : null;
   const items: ParsedItem[] = args?.items ?? [];
-  return json({ items, message: args?.message ?? "Itens identificados" });
+  return json({ items, message: args?.message ?? "Itens identificados" }, 200, req);
 }
 
-async function handleSuggest(supabase: any, userId: string, body: any, apiKey: string) {
+async function handleSuggest(supabase: any, userId: string, body: any, apiKey: string, req: Request) {
   const clientId: string | null = body?.clientId ?? null;
   // pull last 50 cash_items overall, plus client-specific if provided
   const baseQuery = supabase.from("cash_items").select("description, quantity, unit_price, client_id, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(80);
@@ -184,11 +237,11 @@ async function handleSuggest(supabase: any, userId: string, body: any, apiKey: s
     { role: "user", content: prompt },
   ];
   const ai = await callAI(apiKey, messages);
-  if ((ai as any).error) return json(ai, 200);
-  return json({ message: ai?.choices?.[0]?.message?.content ?? "" });
+  if ((ai as any).error) return json(ai, 200, req);
+  return json({ message: ai?.choices?.[0]?.message?.content ?? "" }, 200, req);
 }
 
-async function handleSummary(supabase: any, userId: string, body: any, apiKey: string) {
+async function handleSummary(supabase: any, userId: string, body: any, apiKey: string, req: Request) {
   const sessionId: string | null = body?.sessionId ?? null;
   let q = supabase.from("cash_items").select("description, quantity, unit_price, subtotal, payment_method, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(500);
   if (sessionId) q = q.eq("session_id", sessionId);
@@ -206,13 +259,13 @@ async function handleSummary(supabase: any, userId: string, body: any, apiKey: s
     { role: "user", content: prompt },
   ];
   const ai = await callAI(apiKey, messages);
-  if ((ai as any).error) return json(ai, 200);
-  return json({ message: ai?.choices?.[0]?.message?.content ?? "", stats: { total, ticket, byPayment, count: items.length } });
+  if ((ai as any).error) return json(ai, 200, req);
+  return json({ message: ai?.choices?.[0]?.message?.content ?? "", stats: { total, ticket, byPayment, count: items.length } }, 200, req);
 }
 
-async function handleValidate(supabase: any, userId: string, body: any, apiKey: string) {
+async function handleValidate(supabase: any, userId: string, body: any, apiKey: string, req: Request) {
   const cart = (body?.cart ?? []) as any[];
-  if (!cart.length) return json({ message: "Carrinho vazio." });
+  if (!cart.length) return json({ message: "Carrinho vazio." }, 200, req);
   const subtotal = cart.reduce((s, c) => s + Number(c.subtotal || 0), 0);
   const totalDiscount = cart.reduce((s, c) => s + Number(c.discount || 0), 0);
   const pct = subtotal ? (totalDiscount / subtotal) * 100 : 0;
@@ -230,20 +283,24 @@ async function handleValidate(supabase: any, userId: string, body: any, apiKey: 
     { role: "user", content: `Itens:\n${cart.map((c) => `- ${c.quantity}x ${c.description} @ R$${c.unit_price} (sub R$${c.subtotal})`).join("\n")}\n\nProblemas detectados automaticamente:\n${issues.length ? issues.join("\n") : "(nenhum)"}` },
   ];
   const ai = await callAI(apiKey, messages);
-  if ((ai as any).error) return json(ai, 200);
-  return json({ message: ai?.choices?.[0]?.message?.content ?? "", issues });
+  if ((ai as any).error) return json(ai, 200, req);
+  return json({ message: ai?.choices?.[0]?.message?.content ?? "", issues }, 200, req);
 }
 
-async function handleChat(supabase: any, userId: string, body: any, apiKey: string) {
+async function handleChat(supabase: any, userId: string, body: any, apiKey: string, req: Request) {
   const messages = (body?.messages ?? []) as Msg[];
+  const lastUserText = messages.filter(m => m.role === "user").at(-1)?.content ?? "";
+  if (!isVetRelated(lastUserText)) {
+    return json({ message: "Só consigo ajudar com assuntos do caixa e da clínica veterinária. Como posso te ajudar?" }, 200, req);
+  }
   const { products, services } = await loadCatalog(supabase, userId);
   const sys: Msg = {
     role: "system",
     content: `Você é a IA do Caixa (PDV) de uma clínica veterinária. Ajude o atendente: pode sugerir itens, validar vendas, ou orientar como usar comandos. Seja conciso (máx 5 linhas), em português. Não invente preços. Catálogo resumido (${products.length} produtos, ${services.length} serviços).`,
   };
   const ai = await callAI(apiKey, [sys, ...messages]);
-  if ((ai as any).error) return json(ai, 200);
-  return json({ message: ai?.choices?.[0]?.message?.content ?? "" });
+  if ((ai as any).error) return json(ai, 200, req);
+  return json({ message: ai?.choices?.[0]?.message?.content ?? "" }, 200, req);
 }
 
 function topByQty(items: any[]) {

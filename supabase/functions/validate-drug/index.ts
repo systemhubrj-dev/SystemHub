@@ -57,7 +57,12 @@ serve(async (req) => {
       });
     }
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) {
+      return new Response(JSON.stringify({ error: "Serviço de IA não configurado" }), {
+        status: 503, headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
 
     // Use the authenticated user's client to fetch the drug (respects RLS)
     const { data: drug, error: fetchErr } = await supabase
@@ -130,58 +135,50 @@ INSTRUÇÕES:
 
 Use a função validate_and_complete para retornar sua avaliação.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "Você é um farmacologista veterinário. Valide e complete entradas de medicamentos. Sempre preencha campos faltantes quando possível. Responda em português." },
-          { role: "user", content: prompt },
-        ],
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        system: "Você é um farmacologista veterinário. Valide e complete entradas de medicamentos. Sempre preencha campos faltantes quando possível. Responda em português.",
+        messages: [{ role: "user", content: prompt }],
         tools: [
           {
-            type: "function",
-            function: {
-              name: "validate_and_complete",
-              description: "Retorna validação e dados completos/corrigidos do medicamento",
-              parameters: {
-                type: "object",
-                properties: {
-                  status: {
-                    type: "string",
-                    enum: ["approved", "needs_review", "rejected"],
+            name: "validate_and_complete",
+            description: "Retorna validação e dados completos/corrigidos do medicamento",
+            input_schema: {
+              type: "object",
+              properties: {
+                status: { type: "string", enum: ["approved", "needs_review", "rejected"] },
+                notes: { type: "string" },
+                suggested_data: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    commercial_name: { type: "string" },
+                    active_ingredient: { type: "string" },
+                    drug_class: { type: "string" },
+                    species: { type: "string" },
+                    indications: { type: "string" },
+                    dosage: { type: "string" },
+                    contraindications: { type: "string" },
+                    adverse_effects: { type: "string" },
+                    interactions: { type: "string" },
+                    withdrawal_period: { type: "string" },
                   },
-                  notes: { type: "string" },
-                  suggested_data: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string" },
-                      commercial_name: { type: "string" },
-                      active_ingredient: { type: "string" },
-                      drug_class: { type: "string" },
-                      species: { type: "string" },
-                      indications: { type: "string" },
-                      dosage: { type: "string" },
-                      contraindications: { type: "string" },
-                      adverse_effects: { type: "string" },
-                      interactions: { type: "string" },
-                      withdrawal_period: { type: "string" },
-                    },
-                    required: ["name", "commercial_name", "active_ingredient", "drug_class", "species", "indications", "dosage", "contraindications", "adverse_effects", "interactions", "withdrawal_period"],
-                    additionalProperties: false,
-                  },
+                  required: ["name", "commercial_name", "active_ingredient", "drug_class", "species", "indications", "dosage", "contraindications", "adverse_effects", "interactions", "withdrawal_period"],
                 },
-                required: ["status", "notes", "suggested_data"],
-                additionalProperties: false,
               },
+              required: ["status", "notes", "suggested_data"],
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "validate_and_complete" } },
+        tool_choice: { type: "tool", name: "validate_and_complete" },
       }),
     });
 
@@ -208,9 +205,9 @@ Use a função validate_and_complete para retornar sua avaliação.`;
     let suggestedData: Record<string, string> | null = null;
 
     try {
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      if (toolCall?.function?.arguments) {
-        const args = JSON.parse(toolCall.function.arguments);
+      const toolUse = aiData.content?.find((b: any) => b.type === "tool_use");
+      if (toolUse?.input) {
+        const args = toolUse.input;
         validationStatus = args.status === "approved" ? "approved" : args.status === "needs_review" ? "needs_review" : "rejected";
         validationNotes = args.notes || "Sem observações.";
         suggestedData = args.suggested_data || null;
