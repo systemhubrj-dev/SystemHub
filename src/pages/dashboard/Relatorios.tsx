@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentClinicId } from "@/hooks/useCurrentClinicId";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, startOfYear, endOfYear, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,6 +22,8 @@ export default function Relatorios() {
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [serviceData, setServiceData] = useState<any[]>([]);
   const [clientData, setClientData] = useState<any[]>([]);
+  const [paymentMethodData, setPaymentMethodData] = useState<any[]>([]);
+  const [clientPaymentRows, setClientPaymentRows] = useState<{ client: string; method: string; amount: number; date: string }[]>([]);
   const [stats, setStats] = useState({ totalAppointments: 0, completedAppointments: 0, avgTicket: 0, monthlyProfit: 0, annualProfit: 0, monthlyAvg: 0, periodIncome: 0, periodExpense: 0 });
   const today = new Date();
   const [period, setPeriod] = useState<PeriodRange>({
@@ -40,7 +43,7 @@ export default function Relatorios() {
       const [finRes, apptRes, clientsRes] = await Promise.all([
         supabase.from("financial_records").select("*").eq("user_id", effectiveUserId).gte("date", startStr).lte("date", endStr),
         supabase.from("appointments").select("*").eq("user_id", effectiveUserId).gte("date", period.from.toISOString()).lte("date", period.to.toISOString()),
-        supabase.from("clients").select("created_at").eq("user_id", effectiveUserId).gte("created_at", period.from.toISOString()).lte("created_at", period.to.toISOString()),
+        supabase.from("clients").select("id, name, created_at").eq("user_id", effectiveUserId),
       ]);
 
       const records = finRes.data ?? [];
@@ -58,10 +61,35 @@ export default function Relatorios() {
 
       const services: Record<string, number> = {};
       appointments.forEach((a: any) => {
-        const svc = a.service || "Outros";
+        const svc = (a.service || "Outros").trim();
         services[svc] = (services[svc] || 0) + 1;
       });
       setServiceData(Object.entries(services).map(([name, value]) => ({ name, value })));
+
+      const clientNames: Record<string, string> = {};
+      clients.forEach((c: any) => { clientNames[c.id] = c.name; });
+
+      const paymentMethodLabels: Record<string, string> = {
+        credit: "Crédito", debit: "Débito", pix: "Pix", cash: "Dinheiro",
+        credito: "Crédito", debito: "Débito", dinheiro: "Dinheiro",
+      };
+      const paymentMethods: Record<string, number> = {};
+      const paymentRows: { client: string; method: string; amount: number; date: string }[] = [];
+      records
+        .filter((r: any) => r.type === "income")
+        .forEach((r: any) => {
+          const rawMethod = (r.payment_method || "").trim();
+          const label = paymentMethodLabels[rawMethod.toLowerCase()] || rawMethod || "Não informado";
+          paymentMethods[label] = (paymentMethods[label] || 0) + 1;
+          paymentRows.push({
+            client: (r.client_id && clientNames[r.client_id]) || "—",
+            method: label,
+            amount: Number(r.amount),
+            date: r.date,
+          });
+        });
+      setPaymentMethodData(Object.entries(paymentMethods).map(([name, value]) => ({ name, value })));
+      setClientPaymentRows(paymentRows.sort((a, b) => b.date.localeCompare(a.date)));
 
       const clientMonthly = months.map((m) => {
         const mStr = format(m, "yyyy-MM");
@@ -98,6 +126,14 @@ export default function Relatorios() {
       });
     };
     load();
+
+    const channel = supabase
+      .channel(`relatorios-rt-${effectiveUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `user_id=eq.${effectiveUserId}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "financial_records", filter: `user_id=eq.${effectiveUserId}` }, () => load())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [effectiveUserId, period.from, period.to]);
 
   return (
@@ -115,6 +151,8 @@ export default function Relatorios() {
                 const monthRows = monthlyData.map((m) => [m.name, m.receita.toFixed(2), m.despesa.toFixed(2), m.lucro.toFixed(2)]);
                 const svcRows = serviceData.map((s: any) => [s.name, String(s.value)]);
                 const cliRows = clientData.map((c: any) => [c.name, String(c.cadastros)]);
+                const pmRows = paymentMethodData.map((p: any) => [p.name, String(p.value)]);
+                const pmClientRows = clientPaymentRows.map((r) => [r.client, r.method, r.amount.toFixed(2), format(new Date(r.date), "dd/MM/yyyy")]);
                 downloadXLSX({
                   filename: `relatorio-${format(period.from, "yyyy-MM-dd")}_${format(period.to, "yyyy-MM-dd")}`,
                   title: "Relatório Geral",
@@ -131,6 +169,8 @@ export default function Relatorios() {
                     { title: "Receita x Despesa", headers: ["Mês", "Receita (R$)", "Despesa (R$)", "Lucro (R$)"], rows: monthRows },
                     { title: "Servicos", headers: ["Serviço", "Quantidade"], rows: svcRows },
                     { title: "Clientes por mês", headers: ["Mês", "Novos clientes"], rows: cliRows },
+                    { title: "Formas de pagamento", headers: ["Forma de pagamento", "Quantidade"], rows: pmRows },
+                    { title: "Pagamentos por cliente", headers: ["Cliente", "Forma de pagamento", "Valor (R$)", "Data"], rows: pmClientRows },
                   ],
                 });
               }}>
@@ -147,6 +187,8 @@ export default function Relatorios() {
                 const monthRows = monthlyData.map((m) => [m.name, `R$ ${m.receita.toFixed(2)}`, `R$ ${m.despesa.toFixed(2)}`, `R$ ${m.lucro.toFixed(2)}`]);
                 const svcRows = serviceData.map((s: any) => [s.name, String(s.value)]);
                 const cliRows = clientData.map((c: any) => [c.name, String(c.cadastros)]);
+                const pmRows = paymentMethodData.map((p: any) => [p.name, String(p.value)]);
+                const pmClientRows = clientPaymentRows.map((r) => [r.client, r.method, `R$ ${r.amount.toFixed(2)}`, format(new Date(r.date), "dd/MM/yyyy")]);
                 const company = await fetchCompanyInfo(effectiveUserId);
                 await downloadReportPDF({
                   filename: `relatorio-${format(period.from, "yyyy-MM-dd")}_${format(period.to, "yyyy-MM-dd")}.pdf`,
@@ -165,6 +207,8 @@ export default function Relatorios() {
                     { title: "Receitas x Despesas por mês", headers: ["Mês", "Receita", "Despesa", "Lucro"], rows: monthRows },
                     { title: "Serviços mais realizados", headers: ["Serviço", "Quantidade"], rows: svcRows },
                     { title: "Cadastros de clientes por mês", headers: ["Mês", "Novos clientes"], rows: cliRows },
+                    { title: "Formas de pagamento", headers: ["Forma de pagamento", "Quantidade"], rows: pmRows },
+                    { title: "Pagamentos por cliente", headers: ["Cliente", "Forma de pagamento", "Valor", "Data"], rows: pmClientRows },
                   ],
                 });
               }}>
@@ -248,7 +292,55 @@ export default function Relatorios() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Formas de pagamento</CardTitle></CardHeader>
+          <CardContent>
+            {paymentMethodData.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-12">Sem dados ainda</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={paymentMethodData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
+                    {paymentMethodData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Pagamentos por cliente</CardTitle></CardHeader>
+        <CardContent>
+          {clientPaymentRows.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-12">Sem dados ainda</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Forma de pagamento</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Data</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clientPaymentRows.map((r, i) => (
+                  <TableRow key={i}>
+                    <TableCell>{r.client}</TableCell>
+                    <TableCell>{r.method}</TableCell>
+                    <TableCell>R$ {r.amount.toFixed(2)}</TableCell>
+                    <TableCell>{format(new Date(r.date), "dd/MM/yyyy")}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
