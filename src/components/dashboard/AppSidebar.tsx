@@ -222,22 +222,24 @@ export function AppSidebar() {
           {!collapsed && (
             <SidebarMenuItem>
               <a
-                href="mailto:systemhubrj@gmail.com?subject=Suporte%20SystemHub"
+                href="https://wa.me/5511935051843"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-start gap-2 mx-2 my-1 px-2 py-2 rounded-md bg-primary/5 hover:bg-primary/10 transition-colors text-xs"
-                title="Falar com o suporte"
+                title="Falar com o suporte no WhatsApp"
               >
                 <LifeBuoy className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <div className="min-w-0">
                   <div className="font-semibold text-foreground">Precisa de ajuda?</div>
-                  <div className="text-primary truncate">systemhubrj@gmail.com</div>
+                  <div className="text-primary truncate">Falar no WhatsApp</div>
                 </div>
               </a>
             </SidebarMenuItem>
           )}
           {collapsed && (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild title="Suporte: systemhubrj@gmail.com">
-                <a href="mailto:systemhubrj@gmail.com?subject=Suporte%20SystemHub" className="text-primary">
+              <SidebarMenuButton asChild title="Suporte: WhatsApp">
+                <a href="https://wa.me/5511935051843" target="_blank" rel="noopener noreferrer" className="text-primary">
                   <LifeBuoy className="h-4 w-4" />
                 </a>
               </SidebarMenuButton>
