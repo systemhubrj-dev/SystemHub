@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Calendar, Users, DollarSign, BarChart3, Home, Settings, LogOut, PawPrint, Package, BookOpen, FileText, BedDouble, Bell, ShoppingCart, Wrench, Receipt, Users2, Trash2, CreditCard, Truck, ShieldCheck, LifeBuoy, Apple, ClipboardList } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -5,6 +6,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useVertical } from "@/hooks/useVertical";
+import { useCurrentClinicId } from "@/hooks/useCurrentClinicId";
+import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import type { VerticalId } from "@/verticals";
 import {
@@ -86,11 +89,37 @@ const buildMenuGroups = (vertical: VerticalId, subjectPlural: string, clientPlur
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const { clinicId } = useCurrentClinicId();
   const { role, permissions, loading: roleLoading } = useTeamRole();
   const { isAdmin } = usePlatformAdmin();
   const { vertical, verticalId } = useVertical();
   const location = useLocation();
+
+  const [presaleCount, setPresaleCount] = useState(0);
+
+  useEffect(() => {
+    const effectiveUserId = clinicId ?? user?.id ?? "";
+    if (!effectiveUserId) return;
+
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from("pet_presales" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", effectiveUserId)
+        .in("status", ["pending", "sent_to_cash"]);
+      setPresaleCount(count ?? 0);
+    };
+
+    fetchCount();
+
+    const channel = supabase
+      .channel(`presales-badge-${effectiveUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pet_presales", filter: `user_id=eq.${effectiveUserId}` }, fetchCount)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [clinicId, user?.id]);
 
   const isActive = (path: string) => {
     if (path === "/dashboard") return location.pathname === "/dashboard";
@@ -129,16 +158,28 @@ export function AppSidebar() {
               <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {items.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                        <NavLink to={item.url} end={item.url === "/dashboard"} className="hover:bg-muted/50" activeClassName="bg-muted text-primary font-medium">
-                          <item.icon className="h-4 w-4" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {items.map((item) => {
+                    const isCaixa = item.url === "/dashboard/caixa";
+                    const showBadge = isCaixa && presaleCount > 0;
+                    return (
+                      <SidebarMenuItem key={item.title} className={showBadge && collapsed ? "relative" : ""}>
+                        <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                          <NavLink to={item.url} end={item.url === "/dashboard"} className="hover:bg-muted/50" activeClassName="bg-muted text-primary font-medium">
+                            <item.icon className="h-4 w-4" />
+                            {!collapsed && <span>{item.title}</span>}
+                            {!collapsed && showBadge && (
+                              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white leading-none">
+                                {presaleCount > 99 ? "99+" : presaleCount}
+                              </span>
+                            )}
+                          </NavLink>
+                        </SidebarMenuButton>
+                        {collapsed && showBadge && (
+                          <span className="pointer-events-none absolute -top-0.5 right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-background" />
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
