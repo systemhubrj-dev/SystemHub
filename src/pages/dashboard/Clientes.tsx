@@ -39,6 +39,7 @@ export default function Clientes() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(defaultForm);
   const [loadingCep, setLoadingCep] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadClients = async () => {
     if (!clinicId) return;
@@ -73,6 +74,7 @@ export default function Clientes() {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
     if (!user || !clinicId || !form.name.trim()) { toast.error("Nome é obrigatório"); return; }
 
     // Verificação de duplicidade (CPF, ou nome + telefone)
@@ -109,15 +111,20 @@ export default function Clientes() {
       state: form.state || null,
       complement: form.complement || null,
     };
-    const { error } = editId
-      ? await supabase.from("clients").update(record).eq("id", editId)
-      : await supabase.from("clients").insert(record);
-    if (error) { toast.error("Erro: " + error.message); return; }
-    toast.success(editId ? "Cliente atualizado!" : "Cliente cadastrado!");
-    setDialogOpen(false);
-    resetForm();
-    loadClients();
-    refreshLimits();
+    setIsSaving(true);
+    try {
+      const { error } = editId
+        ? await supabase.from("clients").update(record).eq("id", editId)
+        : await supabase.from("clients").insert(record);
+      if (error) { toast.error("Erro: " + error.message); return; }
+      toast.success(editId ? "Cliente atualizado!" : "Cliente cadastrado!");
+      setDialogOpen(false);
+      resetForm();
+      loadClients();
+      refreshLimits();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
@@ -230,7 +237,9 @@ export default function Clientes() {
               </div>
 
               <div className="space-y-2"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-              <Button onClick={handleSave} className="w-full">Salvar</Button>
+              <Button onClick={handleSave} className="w-full" disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -278,7 +287,7 @@ export default function Clientes() {
                             onClick={() => {
                               const digits = c.phone!.replace(/\D/g, "");
                               const num = digits.startsWith("55") ? digits : `55${digits}`;
-                              window.open(`https://web.whatsapp.com/send?phone=${num}`, "_blank", "noopener,noreferrer");
+                              window.open(`https://wa.me/${num}`, "_blank", "noopener,noreferrer");
                             }}
                           >
                             <MessageCircle className="h-4 w-4" />
