@@ -21,6 +21,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CashAIPanel } from "@/components/cash/CashAIPanel";
+import { CalculatorButton } from "@/components/cash/CalculatorButton";
 
 const PAYMENT_METHODS = [
   { value: "dinheiro", label: "Dinheiro" },
@@ -72,6 +73,7 @@ export default function Caixa() {
 
   const [historyItems, setHistoryItems] = useState<any[]>([]);
   const [selectedSessionHistory, setSelectedSessionHistory] = useState<string>("");
+  const [sessionItems, setSessionItems] = useState<any[]>([]);
 
   const loadData = async () => {
     if (!effectiveUserId) return;
@@ -83,11 +85,20 @@ export default function Caixa() {
       supabase.from("pet_presales" as any).select("*, pets!pet_presales_pet_id_fkey(name, client_id, clients!pets_client_id_fkey(name))").eq("user_id", effectiveUserId).eq("status", "sent_to_cash").order("created_at", { ascending: false }),
     ]);
     const allSessions = (sessRes.data as any[]) ?? [];
+    const openSession = allSessions.find((s) => s.status === "open") || null;
     setSessions(allSessions);
-    setActiveSession(allSessions.find((s) => s.status === "open") || null);
+    setActiveSession(openSession);
     setProducts((prodRes.data as any[]) ?? []);
     setServices((svcRes.data as any[]) ?? []);
     setClients((cliRes.data as any[]) ?? []);
+
+    if (openSession) {
+      const { data: sItems } = await supabase.from("cash_items" as any)
+        .select("subtotal, payment_method").eq("session_id", openSession.id);
+      setSessionItems((sItems as any[]) ?? []);
+    } else {
+      setSessionItems([]);
+    }
 
     const presaleData = (presalesRes.data as any[]) ?? [];
     if (presaleData.length > 0) {
@@ -188,6 +199,10 @@ export default function Caixa() {
     setCart((prev) => [...prev, ...newCart]);
     toast.success(`${newCart.length} ${newCart.length === 1 ? "item adicionado" : "itens adicionados"} pela IA`);
   };
+
+  const sessionTotalSales = sessionItems.reduce((sum, i) => sum + Number(i.subtotal), 0);
+  const sessionCashSales = sessionItems.filter((i) => i.payment_method === "dinheiro").reduce((sum, i) => sum + Number(i.subtotal), 0);
+  const expectedCashInDrawer = (activeSession?.opening_amount || 0) + sessionCashSales;
 
   const cartSubtotal = cart.reduce((sum, c) => sum + c.subtotal, 0);
   const globalDiscountValue = parseFloat(discountRS) || 0;
@@ -366,6 +381,7 @@ export default function Caixa() {
           <ShoppingCart className="h-6 w-6 text-primary" /> Caixa / PDV
         </h1>
         <div className="flex gap-2">
+          <CalculatorButton />
           <Button variant="outline" onClick={() => setHistoryDialog(true)}>
             <History className="h-4 w-4 mr-1" /> Histórico
           </Button>
@@ -383,12 +399,16 @@ export default function Caixa() {
 
       {activeSession && (
         <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="py-3 flex items-center justify-between flex-wrap gap-2">
+          <CardContent className="py-3 flex items-center justify-between flex-wrap gap-x-6 gap-y-2">
             <div className="flex items-center gap-3">
               <Badge variant="default" className="bg-green-600">Caixa Aberto</Badge>
               <span className="text-sm text-muted-foreground">Aberto em {fmtDate(activeSession.opened_at)}</span>
             </div>
-            <span className="text-sm font-medium">Troco inicial: {fmtMoney(activeSession.opening_amount || 0)}</span>
+            <div className="flex items-center gap-4 flex-wrap text-sm">
+              <span className="text-muted-foreground">Troco inicial: <span className="font-medium text-foreground">{fmtMoney(activeSession.opening_amount || 0)}</span></span>
+              <span className="text-muted-foreground">Vendas da sessão: <span className="font-medium text-foreground">{fmtMoney(sessionTotalSales)}</span></span>
+              <span className="font-semibold">Esperado em dinheiro: <span className="text-primary">{fmtMoney(expectedCashInDrawer)}</span></span>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -713,6 +733,9 @@ export default function Caixa() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Fechar Caixa</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Esperado em dinheiro: <span className="font-medium text-foreground">{fmtMoney(expectedCashInDrawer)}</span>
+            </p>
             <div className="space-y-2">
               <Label>Valor em caixa (conferência)</Label>
               <Input type="number" step="0.01" value={closingAmount} onChange={(e) => setClosingAmount(e.target.value)} placeholder="0.00" />
