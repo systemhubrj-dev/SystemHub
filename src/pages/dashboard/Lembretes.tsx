@@ -35,6 +35,13 @@ const TEMPLATES: Record<string, string> = {
   custom: "",
 };
 
+function fillTemplate(template: string, vars: Record<string, string>): string {
+  return Object.entries(vars).reduce(
+    (msg, [key, value]) => msg.split(`{${key}}`).join(value || ""),
+    template
+  );
+}
+
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   sent: "bg-green-100 text-green-800",
@@ -86,13 +93,22 @@ export default function Lembretes() {
     if (!user || !form.scheduled_date || !form.message) {
       toast.error("Preencha a data e mensagem"); return;
     }
+    const pet = pets.find((p: any) => p.id === form.pet_id);
+    const client = clients.find((c: any) => c.id === form.client_id);
+    const typeLabel = REMINDER_TYPES.find((t) => t.value === form.reminder_type)?.label ?? form.reminder_type;
+    const filledMessage = fillTemplate(form.message, {
+      nome_tutor: client?.name ?? "",
+      nome_animal: pet?.name ?? "",
+      data: form.scheduled_date ? format(new Date(`${form.scheduled_date}T00:00:00`), "dd/MM/yyyy") : "",
+      tipo_atendimento: typeLabel,
+    });
     const { error } = await supabase.from("reminders" as any).insert({
       user_id: effectiveUserId,
       pet_id: form.pet_id || null,
       client_id: form.client_id || null,
       reminder_type: form.reminder_type,
       channel: form.channel,
-      message: form.message,
+      message: filledMessage,
       scheduled_date: form.scheduled_date,
       advance_days: parseInt(form.advance_days) || 3,
       status: "pending",
@@ -105,9 +121,26 @@ export default function Lembretes() {
   };
 
   const handleSendNow = async (reminder: any) => {
+    const channel = reminder.channel ?? "email";
+
+    if (channel === "whatsapp") {
+      const phone = reminder.clients?.phone;
+      if (!phone) { toast.error("Cliente sem telefone cadastrado"); return; }
+      const digits = phone.replace(/\D/g, "");
+      const num = digits.startsWith("55") ? digits : `55${digits}`;
+      const msg = encodeURIComponent(reminder.message ?? "");
+      window.open(`https://wa.me/${num}?text=${msg}`, "_blank", "noopener,noreferrer");
+      await supabase.from("reminder_logs" as any).insert({
+        reminder_id: reminder.id, user_id: effectiveUserId, channel: "whatsapp", status: "sent",
+      });
+      await supabase.from("reminders" as any).update({ status: "sent" }).eq("id", reminder.id);
+      toast.success("WhatsApp aberto para " + (reminder.clients?.name ?? phone));
+      loadData();
+      return;
+    }
+
     const clientEmail = reminder.clients?.email;
     if (!clientEmail) { toast.error("Cliente sem email cadastrado"); return; }
-    // Log the send attempt
     await supabase.from("reminder_logs" as any).insert({
       reminder_id: reminder.id, user_id: effectiveUserId, channel: "email", status: "sent",
     });
@@ -250,7 +283,7 @@ export default function Lembretes() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="whatsapp" disabled>WhatsApp (em breve)</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
                     <SelectItem value="sms" disabled>SMS (em breve)</SelectItem>
                   </SelectContent>
                 </Select>
