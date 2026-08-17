@@ -21,7 +21,8 @@ interface Props {
 }
 
 export function PeriodFilter({ value, onChange }: Props) {
-  const [preset, setPreset] = useState<string>("current_month");
+  const currentMonthLabel = format(new Date(), "MMMM 'de' yyyy", { locale: ptBR });
+  const [preset, setPreset] = useState<string>(value.label === currentMonthLabel ? "current_month" : "custom");
   const [openCalendar, setOpenCalendar] = useState(false);
   const [customRange, setCustomRange] = useState<DateRange | undefined>({ from: value.from, to: value.to });
 

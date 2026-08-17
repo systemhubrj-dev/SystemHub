@@ -24,7 +24,7 @@ export default function Relatorios() {
   const [clientData, setClientData] = useState<any[]>([]);
   const [paymentMethodData, setPaymentMethodData] = useState<any[]>([]);
   const [clientPaymentRows, setClientPaymentRows] = useState<{ client: string; method: string; amount: number; date: string }[]>([]);
-  const [stats, setStats] = useState({ totalAppointments: 0, completedAppointments: 0, avgTicket: 0, monthlyProfit: 0, annualProfit: 0, monthlyAvg: 0, periodIncome: 0, periodExpense: 0 });
+  const [stats, setStats] = useState({ totalAppointments: 0, avgTicket: 0, monthlyProfit: 0, annualProfit: 0, monthlyAvg: 0, periodIncome: 0, periodExpense: 0 });
   const today = new Date();
   const [period, setPeriod] = useState<PeriodRange>({
     from: startOfMonth(subMonths(today, 5)),
@@ -99,7 +99,6 @@ export default function Relatorios() {
       setClientData(clientMonthly);
 
       const total = appointments.length;
-      const completed = appointments.filter((a: any) => a.status === "completed").length;
       const incomeAppts = appointments.filter((a: any) => a.price).map((a: any) => Number(a.price));
       const avg = incomeAppts.length > 0 ? incomeAppts.reduce((a: number, b: number) => a + b, 0) / incomeAppts.length : 0;
 
@@ -114,11 +113,15 @@ export default function Relatorios() {
       const monthsWithActivity = new Set(yr.map((r: any) => r.date.slice(0, 7))).size;
       const divisor = Math.max(1, monthsWithActivity);
 
+      const currentMonthStr = format(now, "yyyy-MM");
+      const currentMonthRecs = yr.filter((r: any) => r.date.startsWith(currentMonthStr));
+      const currentMonthIncome = currentMonthRecs.filter((r: any) => r.type === "income").reduce((s: number, r: any) => s + Number(r.amount), 0);
+      const currentMonthExpense = currentMonthRecs.filter((r: any) => r.type === "expense").reduce((s: number, r: any) => s + Number(r.amount), 0);
+
       setStats({
         totalAppointments: total,
-        completedAppointments: completed,
         avgTicket: avg,
-        monthlyProfit: periodIncome - periodExpense,
+        monthlyProfit: currentMonthIncome - currentMonthExpense,
         annualProfit: annualIncome - annualExpense,
         monthlyAvg: (annualIncome - annualExpense) / divisor,
         periodIncome,
@@ -159,11 +162,10 @@ export default function Relatorios() {
                   subtitle: `Período: ${format(period.from, "dd/MM/yyyy")} a ${format(period.to, "dd/MM/yyyy")}`,
                   summary: [
                     { label: "Atendimentos", value: String(stats.totalAppointments) },
-                    { label: "Concluídos", value: String(stats.completedAppointments) },
                     { label: "Ticket médio", value: `R$ ${stats.avgTicket.toFixed(2)}` },
                     { label: "Receitas", value: `R$ ${stats.periodIncome.toFixed(2)}` },
                     { label: "Despesas", value: `R$ ${stats.periodExpense.toFixed(2)}` },
-                    { label: "Lucro do período", value: `R$ ${stats.monthlyProfit.toFixed(2)}` },
+                    { label: "Lucro do período", value: `R$ ${(stats.periodIncome - stats.periodExpense).toFixed(2)}` },
                   ],
                   sections: [
                     { title: "Receita x Despesa", headers: ["Mês", "Receita (R$)", "Despesa (R$)", "Lucro (R$)"], rows: monthRows },
@@ -197,11 +199,10 @@ export default function Relatorios() {
                   company,
                   summary: [
                     { label: "Atendimentos", value: String(stats.totalAppointments) },
-                    { label: "Concluídos", value: String(stats.completedAppointments) },
                     { label: "Ticket médio", value: `R$ ${stats.avgTicket.toFixed(2)}` },
                     { label: "Receitas", value: `R$ ${stats.periodIncome.toFixed(2)}` },
                     { label: "Despesas", value: `R$ ${stats.periodExpense.toFixed(2)}` },
-                    { label: "Lucro", value: `R$ ${stats.monthlyProfit.toFixed(2)}` },
+                    { label: "Lucro", value: `R$ ${(stats.periodIncome - stats.periodExpense).toFixed(2)}` },
                   ],
                   sections: [
                     { title: "Receitas x Despesas por mês", headers: ["Mês", "Receita", "Despesa", "Lucro"], rows: monthRows },
@@ -219,9 +220,8 @@ export default function Relatorios() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total atendimentos</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{stats.totalAppointments}</div></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Concluídos</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-emerald-600">{stats.completedAppointments}</div></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Ticket médio</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">R$ {stats.avgTicket.toFixed(2)}</div></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Lucro mensal</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${stats.monthlyProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>R$ {stats.monthlyProfit.toFixed(2)}</div></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Lucro anual</CardTitle></CardHeader><CardContent><div className={`text-2xl font-bold ${stats.annualProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>R$ {stats.annualProfit.toFixed(2)}</div></CardContent></Card>
