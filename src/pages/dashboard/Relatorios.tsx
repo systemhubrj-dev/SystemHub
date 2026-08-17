@@ -40,14 +40,14 @@ export default function Relatorios() {
     const endStr = format(period.to, "yyyy-MM-dd");
 
     const load = async () => {
-      const [finRes, apptRes, clientsRes] = await Promise.all([
+      const [finRes, cashItemsRes, clientsRes] = await Promise.all([
         supabase.from("financial_records").select("*").eq("user_id", effectiveUserId).gte("date", startStr).lte("date", endStr),
-        supabase.from("appointments").select("*").eq("user_id", effectiveUserId).gte("date", period.from.toISOString()).lte("date", period.to.toISOString()),
+        supabase.from("cash_items" as any).select("description, item_type, created_at").eq("user_id", effectiveUserId).gte("created_at", period.from.toISOString()).lte("created_at", period.to.toISOString()),
         supabase.from("clients").select("id, name, created_at").eq("user_id", effectiveUserId),
       ]);
 
       const records = finRes.data ?? [];
-      const appointments = apptRes.data ?? [];
+      const cashItems = (cashItemsRes.data as any[]) ?? [];
       const clients = clientsRes.data ?? [];
 
       const monthly = months.map((m) => {
@@ -60,10 +60,12 @@ export default function Relatorios() {
       setMonthlyData(monthly);
 
       const services: Record<string, number> = {};
-      appointments.forEach((a: any) => {
-        const svc = (a.service || "Outros").trim();
-        services[svc] = (services[svc] || 0) + 1;
-      });
+      cashItems
+        .filter((i: any) => i.item_type === "service")
+        .forEach((i: any) => {
+          const svc = (i.description || "Outros").trim();
+          services[svc] = (services[svc] || 0) + 1;
+        });
       setServiceData(Object.entries(services).map(([name, value]) => ({ name, value })));
 
       const clientNames: Record<string, string> = {};
@@ -98,12 +100,11 @@ export default function Relatorios() {
       });
       setClientData(clientMonthly);
 
-      const total = appointments.length;
-      const incomeAppts = appointments.filter((a: any) => a.price).map((a: any) => Number(a.price));
-      const avg = incomeAppts.length > 0 ? incomeAppts.reduce((a: number, b: number) => a + b, 0) / incomeAppts.length : 0;
-
-      const periodIncome = records.filter((r: any) => r.type === "income").reduce((s: number, r: any) => s + Number(r.amount), 0);
+      const incomeRecords = records.filter((r: any) => r.type === "income");
+      const periodIncome = incomeRecords.reduce((s: number, r: any) => s + Number(r.amount), 0);
       const periodExpense = records.filter((r: any) => r.type === "expense").reduce((s: number, r: any) => s + Number(r.amount), 0);
+      const total = incomeRecords.length;
+      const avg = total > 0 ? periodIncome / total : 0;
 
       const yearStr = format(now, "yyyy");
       const { data: yearRecs } = await supabase.from("financial_records").select("date,type,amount").eq("user_id", effectiveUserId).gte("date", `${yearStr}-01-01`).lte("date", `${yearStr}-12-31`);
@@ -132,7 +133,7 @@ export default function Relatorios() {
 
     const channel = supabase
       .channel(`relatorios-rt-${effectiveUserId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `user_id=eq.${effectiveUserId}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "cash_items", filter: `user_id=eq.${effectiveUserId}` }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "financial_records", filter: `user_id=eq.${effectiveUserId}` }, () => load())
       .subscribe();
 
