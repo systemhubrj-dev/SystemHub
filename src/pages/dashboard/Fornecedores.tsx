@@ -229,7 +229,7 @@ export default function Fornecedores() {
 
               <div className="border rounded-lg p-3 space-y-3">
                 <p className="text-sm font-semibold text-muted-foreground">Endereço</p>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>CEP</Label>
                     <Input value={form.cep} onChange={(e) => setForm({ ...form, cep: e.target.value })} />
@@ -239,7 +239,7 @@ export default function Fornecedores() {
                     <Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Número</Label>
                     <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} />
@@ -249,7 +249,7 @@ export default function Fornecedores() {
                     <Input value={form.complement} onChange={(e) => setForm({ ...form, complement: e.target.value })} />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Bairro</Label>
                     <Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} />
@@ -303,6 +303,7 @@ export default function Fornecedores() {
 
       <Card>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -358,6 +359,7 @@ export default function Fornecedores() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

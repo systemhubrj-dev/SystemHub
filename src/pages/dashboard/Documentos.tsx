@@ -361,6 +361,7 @@ export default function Documentos() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -384,7 +385,7 @@ export default function Documentos() {
                 return (
                   <TableRow key={doc.id}>
                     <TableCell className="font-mono text-sm">#{doc.document_number}</TableCell>
-                    <TableCell><Badge variant="outline">{getTypeLabel(doc.document_type)}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className="whitespace-normal max-w-[220px]">{getTypeLabel(doc.document_type)}</Badge></TableCell>
                     <TableCell>{petName}</TableCell>
                     <TableCell>{clientName}</TableCell>
                     <TableCell className="text-sm">{format(new Date(doc.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
@@ -406,6 +407,7 @@ export default function Documentos() {
               })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

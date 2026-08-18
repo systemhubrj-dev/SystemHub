@@ -198,6 +198,7 @@ export default function Lembretes() {
           </div>
           <Card>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -232,6 +233,7 @@ export default function Lembretes() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -240,6 +242,7 @@ export default function Lembretes() {
           <Card>
             <CardHeader><CardTitle className="text-base">Histórico de Envios</CardTitle></CardHeader>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow><TableHead>Data</TableHead><TableHead>Tipo</TableHead><TableHead>Animal</TableHead><TableHead>Tutor</TableHead><TableHead>Canal</TableHead><TableHead>Status</TableHead></TableRow>
@@ -259,6 +262,7 @@ export default function Lembretes() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -353,6 +353,7 @@ export default function Funcionarios() {
               <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4" /> Membros com acesso ao sistema</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -371,10 +372,10 @@ export default function Funcionarios() {
                         <TableRow key={m.user_id}>
                           <TableCell className="font-medium">{m.name ?? "—"}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <span>{m.email ?? "—"}</span>
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="truncate max-w-[160px] sm:max-w-none">{m.email ?? "—"}</span>
                               {m.email && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyText(m.email!, "E-mail")}>
+                                <Button variant="ghost" size="icon" className="shrink-0" onClick={() => copyText(m.email!, "E-mail")}>
                                   <Copy className="h-3 w-3" />
                                 </Button>
                               )}
@@ -385,7 +386,7 @@ export default function Funcionarios() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Gerar nova senha" onClick={() => handleResetPassword(m)}>
+                              <Button variant="ghost" size="icon" title="Gerar nova senha" onClick={() => handleResetPassword(m)}>
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleRevokeMember(m.user_id)}>
@@ -399,6 +400,7 @@ export default function Funcionarios() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -494,6 +496,7 @@ export default function Funcionarios() {
 
           <Card>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -529,6 +532,7 @@ export default function Funcionarios() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -579,6 +583,7 @@ export default function Funcionarios() {
 
           <Card>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -607,6 +612,7 @@ export default function Funcionarios() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

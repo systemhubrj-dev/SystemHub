@@ -197,7 +197,7 @@ export default function Clientes() {
               {/* Address section with CEP */}
               <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
                 <Label className="text-sm font-semibold">Endereço</Label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">CEP</Label>
                     <div className="relative">
@@ -210,7 +210,7 @@ export default function Clientes() {
                     <Input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} placeholder="Logradouro" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Número</Label>
                     <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="Nº" />

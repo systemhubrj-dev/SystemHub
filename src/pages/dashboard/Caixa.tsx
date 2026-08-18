@@ -433,7 +433,7 @@ export default function Caixa() {
           </div>
 
           {/* LEFT — Basket */}
-          <div className="space-y-4 lg:col-span-5">
+          <div className="space-y-4 lg:col-span-5 order-2 lg:order-none">
             {/* Client indicator */}
             <Card>
               <CardContent className="py-3 flex items-center justify-between">
@@ -463,6 +463,7 @@ export default function Caixa() {
                 <CardTitle className="text-base">Cesta de produtos:</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -488,7 +489,7 @@ export default function Caixa() {
                             type="number" min="1" max={c.max_stock}
                             value={c.quantity}
                             onChange={(e) => updateCartItem(c.id, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
-                            className="h-7 w-14 text-xs text-center"
+                            className="h-9 w-16 text-xs text-center"
                           />
                         </TableCell>
                         <TableCell className="text-right text-sm">{fmtMoney(c.unit_price)}</TableCell>
@@ -502,6 +503,7 @@ export default function Caixa() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
 
@@ -564,10 +566,10 @@ export default function Caixa() {
           </div>
 
           {/* RIGHT — Tabs: Products, Services, Clients, Pre-sales */}
-          <Card className="lg:col-span-4">
+          <Card className="lg:col-span-4 order-1 lg:order-none">
             <CardContent className="p-4">
               <Tabs value={rightTab} onValueChange={setRightTab}>
-                <TabsList className="w-full grid grid-cols-4">
+                <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4">
                   <TabsTrigger value="products"><Package className="h-3 w-3 mr-1" /> Produtos</TabsTrigger>
                   <TabsTrigger value="services"><Wrench className="h-3 w-3 mr-1" /> Serviços</TabsTrigger>
                   <TabsTrigger value="clients"><User className="h-3 w-3 mr-1" /> Clientes</TabsTrigger>

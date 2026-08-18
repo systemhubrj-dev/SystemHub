@@ -319,6 +319,7 @@ export default function Relatorios() {
           {clientPaymentRows.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-12">Sem dados ainda</p>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -339,6 +340,7 @@ export default function Relatorios() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
