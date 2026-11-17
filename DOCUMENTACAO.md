@@ -170,6 +170,7 @@ Essas mesmas variáveis também precisam estar configuradas no painel do Vercel 
 - **Assinantes antigos no cartão** continuam pagando R$ 129,90: o Mercado Pago guarda o valor em cada assinatura já criada. Pra baixar, editar cada uma em Mercado Pago → Seu negócio → Assinaturas.
 - **`mp-check-payment` publicada não valida o valor do PIX pago** (a versão do repositório valida, mas nunca foi publicada). Vale publicar essa validação com cuidado (ver 7.1).
 - **Vercel sem 2FA**: ativar em https://vercel.com/account/settings/authentication
+- **SEO**: site ainda não indexado no Google (indexação solicitada em 17/11/2026) e melhorias técnicas pendentes — ver seção 11.3.
 - **Token do GitHub na URL do remote** (ver aviso na seção 2).
 - A IA do sistema (bulário, clínico, caixa, nutri, vet-assistant) **migrou do gateway da Lovable para a API da Anthropic (Claude)** — commit `607008f`. Se for mexer nas edge functions de IA, é lá que a chamada ao modelo acontece.
 - Os bundles JS de produção estão grandes (alguns acima de 500kB) — o Vite avisa disso no build. Não é erro, é só uma sugestão de otimização (code-splitting) pra considerar no futuro, não bloqueia nada.
@@ -184,6 +185,33 @@ O site não precisa estar hospedado no Google pra aparecer nas buscas — o que 
 - Se adicionar páginas públicas novas, inclua-as no `public/sitemap.xml`.
 - **Status (17/11/2026): ✅ verificado e sitemap enviado**, na conta Google `jvitor.souza10@gmail.com`. Painel: https://search.google.com/search-console?resource_id=sc-domain:systemhub.app.br
 - ⚠️ **Não apague** o registro TXT `google-site-verification=...` da zona DNS no Registro.br — sem ele o Google perde a verificação.
+
+### 11.1 Teste de indexação — 17/11/2026
+
+| Teste | Resultado |
+|---|---|
+| Busca `site:systemhub.app.br` no Google | ❌ nenhuma página encontrada — o site **nunca tinha sido indexado** (mesmo no ar desde maio/2026) |
+| Inspeção de URL no Search Console (`https://www.systemhub.app.br/`) | "O URL não está no Google — O Google não reconhece o URL" (nunca descoberto, nenhum rastreamento) |
+| Bloqueios técnicos (checados com `curl`) | ✅ nenhum: página responde 200, sem `noindex` (nem meta nem header `X-Robots-Tag`), `robots.txt` e `sitemap.xml` online (200) |
+| **Solicitar indexação** — página inicial `/` | ✅ "Indexação solicitada" (entrou na fila prioritária de rastreamento) |
+| **Solicitar indexação** — `/planos` | ⚠️ solicitado, mas a confirmação não pôde ser lida (a extensão do navegador caiu). Conferir/refazer pelo painel |
+| **Solicitar indexação** — `/sobre` | ⏳ ainda não solicitado |
+
+**Causa provável de nunca ter aparecido:** o Google simplesmente não sabia que o site existia — nenhum sitemap enviado, nenhum link de outros sites apontando pra ele.
+
+### 11.2 Quanto tempo leva e como acompanhar
+- **Busca pelo nome** ("SystemHub veterinário", "systemhub.app.br"): alguns dias a ~2 semanas depois da indexação solicitada.
+- **Buscas genéricas** ("sistema para clínica veterinária"): semanas a meses — depende de conteúdo, tempo de site e links externos.
+- **Como testar:** pesquise `site:systemhub.app.br` no Google. Se aparecer alguma página, já está no índice. No Search Console: relatório **Páginas** (o que foi indexado) e **Desempenho** (em que buscas aparece e quantos cliques).
+- **Pedir indexação de uma página:** Search Console → cole a URL na barra "Inspecionar qualquer URL" do topo → **Solicitar indexação** (leva ~1–2 min; há limite diário de pedidos). Pedir várias vezes a mesma URL não acelera.
+- "SystemHub" é um nome genérico usado por outras empresas — buscar só "systemhub" pode trazer outros sites antes. Use "SystemHub veterinário".
+
+### 11.3 Melhorias de SEO pendentes (encontradas no teste)
+1. **Mesmo título/descrição em todas as páginas** — o site é uma SPA React; o `<title>` e a descrição vêm só do `index.html`. Ideal: título/descrição específicos por rota (ex.: `react-helmet-async` ou ajustar `document.title` + meta description em cada página pública).
+2. **HTML sem conteúdo antes do JavaScript** — o `<body>` chega vazio e o conteúdo só aparece depois do JS rodar. O Google renderiza JS, mas indexa mais devagar. Ideal a médio prazo: pré-renderizar as páginas públicas (`/`, `/sobre`, `/planos`) no build.
+3. **Sem `<link rel="canonical">`** no `index.html` — adicionar apontando pra `https://www.systemhub.app.br/...` evita versões duplicadas (com/sem `www`).
+4. **Redirecionamento `systemhub.app.br` → `www` é 307 (temporário)** — o ideal pra SEO é 308/301 (permanente). Ajustável no painel da Vercel → Settings → Domains (escolher redirecionamento permanente).
+5. **Links externos**: divulgar `https://www.systemhub.app.br` no Instagram, LinkedIn, Google Meu Negócio e diretórios/grupos de veterinária — cada link de fora ajuda o Google a descobrir e valorizar o site.
 
 ## 12. Resumo rápido pra colar numa IA nova
 
