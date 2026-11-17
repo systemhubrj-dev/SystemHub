@@ -56,7 +56,7 @@ export function TrialExpiredWall({ onSelectPlan, loading }: TrialExpiredWallProp
               <p className="text-sm text-muted-foreground">Para clínicas veterinárias que não param</p>
             </div>
             <div className="text-right">
-              <div className="text-4xl font-extrabold tracking-tight">R$ 129,90</div>
+              <div className="text-4xl font-extrabold tracking-tight">R$ 49,90</div>
               <div className="text-xs text-muted-foreground">por mês · sem fidelidade</div>
             </div>
           </div>

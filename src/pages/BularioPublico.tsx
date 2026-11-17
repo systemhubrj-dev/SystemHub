@@ -33,7 +33,7 @@ function StaticHero({ user }: { user: boolean }) {
       <div className="relative container mx-auto px-4 py-10 md:py-14 max-w-3xl">
         {/* Badge */}
         <span className="inline-flex items-center gap-1.5 bg-white/15 border border-white/25 text-white/90 text-[11px] font-bold px-3 py-1 rounded-full tracking-widest uppercase mb-4">
-          ✦ Plano único · R$129,90 · tudo incluso
+          ✦ Plano único · R$49,90 · tudo incluso
         </span>
 
         {/* Headline */}
@@ -99,7 +99,7 @@ const TESTIMONIALS = [
     role: "Médico Veterinário Autônomo, RJ",
     avatar: "MF",
     color: "bg-emerald-500",
-    text: "O bulário gratuito já era ótimo. Quando assinei e vi o calculador de dose integrado com o prontuário, foi outro nível. Vale cada centavo dos R$129,90.",
+    text: "O bulário gratuito já era ótimo. Quando assinei e vi o calculador de dose integrado com o prontuário, foi outro nível. Vale cada centavo dos R$49,90.",
   },
   {
     name: "Ana Beatriz Lima",
@@ -184,7 +184,7 @@ function FeatureSection({ user }: { user: boolean }) {
     <section ref={ref} className="py-16 border-t bg-secondary/20">
       <div className="container mx-auto px-4 max-w-5xl">
         <div className="text-center mb-10">
-          <Badge className="mb-3 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">Plano VetPro · R$129,90/mês · tudo incluso</Badge>
+          <Badge className="mb-3 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">Plano VetPro · R$49,90/mês · tudo incluso</Badge>
           <h2 className="text-2xl md:text-3xl font-extrabold">Além do bulário gratuito</h2>
           <p className="mt-2 text-muted-foreground text-sm max-w-lg mx-auto">
             Assine e tenha o sistema completo — sem surpresas, sem planos intermediários.
@@ -251,7 +251,7 @@ function StickyCtaBar({ user }: { user: boolean }) {
         <div className="flex items-center gap-3 min-w-0">
           <Brain className="h-5 w-5 shrink-0 opacity-80" />
           <div className="min-w-0">
-            <p className="font-bold text-sm leading-tight">Plano VetPro · R$129,90/mês</p>
+            <p className="font-bold text-sm leading-tight">Plano VetPro · R$49,90/mês</p>
             <p className="text-xs opacity-70 truncate">Bulário + IA + Financeiro + Equipe — tudo incluso</p>
           </div>
         </div>
@@ -355,7 +355,7 @@ export default function BularioPublico() {
           <div className="container mx-auto px-4 text-center max-w-2xl">
             <h2 className="text-2xl md:text-3xl font-extrabold mb-3">Pronto para modernizar sua clínica?</h2>
             <p className="text-primary-foreground/75 text-sm mb-6">
-              R$129,90/mês · Tudo incluso · 7 dias grátis sem cartão
+              R$49,90/mês · Tudo incluso · 7 dias grátis sem cartão
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link to="/register">

@@ -141,7 +141,7 @@ export default function DrugMonograph({ drug, onBack, isLoggedIn = true }: DrugM
                   <Button size="sm" variant="outline">Entrar</Button>
                 </Link>
               </div>
-              <p className="text-[10px] text-muted-foreground">Sem cartão · R$129,90/mês após o trial</p>
+              <p className="text-[10px] text-muted-foreground">Sem cartão · R$49,90/mês após o trial</p>
             </div>
           )}
 

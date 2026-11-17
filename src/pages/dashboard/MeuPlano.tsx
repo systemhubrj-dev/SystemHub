@@ -14,7 +14,7 @@ import { PixPaymentDialog } from "@/components/billing/PixPaymentDialog";
 const VETPRO = {
   id: "vetpro" as const,
   name: "VetPro",
-  price: 129.90,
+  price: 49.90,
   description: "Para clínicas e veterinários autônomos",
   features: [
     { icon: HeartPulse, label: "Prontuário, agenda e receita digital" },

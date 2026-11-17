@@ -5,10 +5,10 @@ import { corsHeaders } from "../_shared/cors.ts";
 const PLAN_DAYS = 30;
 
 const PLAN_PRICES: Record<string, number> = {
-  vetpro: 129.90,
-  essencial: 129.90,
-  profissional: 129.90,
-  clinica: 129.90,
+  vetpro: 49.90,
+  essencial: 49.90,
+  profissional: 49.90,
+  clinica: 49.90,
 };
 
 function isPixPayment(payment: any) {
@@ -84,8 +84,9 @@ Deno.serve(async (req) => {
 
     if (mpData?.status === "approved" && isPixPayment(mpData) && refUserId === userId) {
       // Validate payment amount to prevent zero-value activation attacks
-      const expectedPrice = PLAN_PRICES[refPlanId ?? "vetpro"] ?? 129.90;
-      if (Math.abs((mpData.transaction_amount ?? 0) - expectedPrice) > 0.10) {
+      const expectedPrice = PLAN_PRICES[refPlanId ?? "vetpro"] ?? 49.90;
+      // Só rejeita valor abaixo do esperado (aceita PIX gerado antes de uma redução de preço)
+      if ((mpData.transaction_amount ?? 0) < expectedPrice - 0.10) {
         console.error("mp-check-payment: amount mismatch", {
           received: mpData.transaction_amount,
           expected: expectedPrice,

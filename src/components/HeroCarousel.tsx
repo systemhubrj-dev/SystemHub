@@ -15,7 +15,7 @@ const SLIDES = [
       "https://images.unsplash.com/photo-1769117112485-5a6a22c37226?auto=format&fit=crop&w=1600&q=80",
     socialProof: "7 dias grátis · sem cartão",
     socialProofIcon: "🎁",
-    title: "R$ 129,90.\nTudo incluso.",
+    title: "R$ 49,90.\nTudo incluso.",
     subtitle:
       "Agenda, prontuário com IA, financeiro e estoque — num plano só, sem letras miúdas.",
     cta: "Teste grátis por 7 dias",
@@ -222,7 +222,7 @@ export function HeroCarousel({ user }: HeroCarouselProps) {
                       </Button>
                     </Link>
                   )}
-                  <span className="text-white font-extrabold text-base">R$ 129,90<span className="text-white/40 font-normal text-xs">/mês</span></span>
+                  <span className="text-white font-extrabold text-base">R$ 49,90<span className="text-white/40 font-normal text-xs">/mês</span></span>
                   {slide.features.map((f) => (
                     <span
                       key={f}

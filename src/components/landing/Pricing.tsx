@@ -62,7 +62,7 @@ const Pricing = () => {
               <h3 className="text-2xl font-bold text-foreground">VetPro</h3>
               <p className="text-sm text-muted-foreground mt-1">Para clínicas e veterinários autônomos</p>
               <div className="mt-5 flex items-baseline justify-center gap-1">
-                <span className="text-5xl font-extrabold tracking-tight text-foreground">R$ 129,90</span>
+                <span className="text-5xl font-extrabold tracking-tight text-foreground">R$ 49,90</span>
                 <span className="text-muted-foreground text-sm">/mês</span>
               </div>
             </div>

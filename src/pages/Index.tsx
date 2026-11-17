@@ -79,8 +79,8 @@ const STEPS = [
     num: "03",
     icon: ShieldCheck,
     title: "Assine e continue",
-    desc: "R$129,90/mês com tudo incluso. Sem módulos extras, sem pegadinhas. Cancele quando quiser.",
-    time: "R$129,90/mês",
+    desc: "R$49,90/mês com tudo incluso. Sem módulos extras, sem pegadinhas. Cancele quando quiser.",
+    time: "R$49,90/mês",
   },
 ];
 
@@ -261,7 +261,7 @@ const Index = () => {
         />
         <div className="relative container mx-auto px-4 max-w-3xl text-center">
           <Badge className="mb-5 px-4 py-1.5 text-xs font-semibold tracking-wide bg-white/10 text-white border-white/20 backdrop-blur-sm">
-            ✦ Sistema veterinário completo · Plano único R$129,90/mês
+            ✦ Sistema veterinário completo · Plano único R$49,90/mês
           </Badge>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-5 leading-tight">
             Conheça o <span className="text-white/80">SystemHub</span>
@@ -357,7 +357,7 @@ const Index = () => {
             VetPro · Plano único
           </Badge>
           <h2 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
-            R$129,90
+            R$49,90
             <span className="text-2xl font-normal text-white/60">/mês</span>
           </h2>
           <p className="text-white/70 text-lg mb-2">Tudo incluso · 7 dias grátis · Sem cartão</p>

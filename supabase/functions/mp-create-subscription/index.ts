@@ -3,10 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const PLAN_PRICES: Record<string, { name: string; price: number }> = {
-  vetpro: { name: "Plano VetPro", price: 129.90 },
-  essencial: { name: "Plano VetPro", price: 129.90 },
-  profissional: { name: "Plano VetPro", price: 129.90 },
-  clinica: { name: "Plano VetPro", price: 129.90 },
+  vetpro: { name: "Plano VetPro", price: 49.90 },
+  essencial: { name: "Plano VetPro", price: 49.90 },
+  profissional: { name: "Plano VetPro", price: 49.90 },
+  clinica: { name: "Plano VetPro", price: 49.90 },
 };
 
 Deno.serve(async (req) => {

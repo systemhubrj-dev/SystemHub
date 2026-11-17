@@ -140,7 +140,7 @@ const Planos = () => {
               </Badge>
               <div className="flex items-end justify-center gap-1">
                 <span className="text-2xl font-bold text-muted-foreground mt-1">R$</span>
-                <span className="text-6xl font-extrabold text-foreground leading-none">129</span>
+                <span className="text-6xl font-extrabold text-foreground leading-none">49</span>
                 <span className="text-3xl font-extrabold text-foreground mb-1">,90</span>
                 <span className="text-muted-foreground mb-2 ml-1">/mês</span>
               </div>
@@ -297,7 +297,7 @@ const Planos = () => {
             </h2>
             <p className="text-primary-foreground/80 text-lg mb-3">
               7 dias grátis. Depois, apenas{" "}
-              <strong className="text-white">R$129,90/mês</strong> com tudo incluso.
+              <strong className="text-white">R$49,90/mês</strong> com tudo incluso.
             </p>
             <p className="text-primary-foreground/60 text-sm mb-8">
               Sem cartão de crédito. Sem burocracia. Sem surpresas.

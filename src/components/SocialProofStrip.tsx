@@ -53,7 +53,7 @@ export function SocialProofStrip() {
     {
       icon: Layers,
       value: "1 plano",
-      label: "tudo incluso · R$129,90",
+      label: "tudo incluso · R$49,90",
       color: "text-rose-500",
       bg: "bg-rose-500/10",
     },
