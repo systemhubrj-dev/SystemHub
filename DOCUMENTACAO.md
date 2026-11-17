@@ -6,6 +6,8 @@
 
 Sistema de gestão para clínicas veterinárias com IA integrada (bulário, prontuário, agenda, financeiro, estoque, equipe). Site público: **https://systemhub.app.br**
 
+**Plano e preço (desde 17/11/2026):** plano único **VetPro — R$ 49,90/mês** (antes R$ 129,90), 7 dias grátis. O id do plano no código é `vetpro` (os ids antigos `essencial`/`profissional`/`clinica` ainda existem nas funções de pagamento só por compatibilidade e cobram o mesmo valor).
+
 ## 2. Onde está tudo
 
 | O quê | Onde |
@@ -13,10 +15,12 @@ Sistema de gestão para clínicas veterinárias com IA integrada (bulário, pron
 | Código-fonte (pasta local) | `C:\Users\jvito\OneDrive\Desktop\SystemHub` |
 | Repositório Git | `https://github.com/systemhubrj-dev/SystemHub` (privado) |
 | Deploy / hospedagem | Vercel — projeto `system-hub-com-ru97`, time `joao-monteiro-s-projects` |
-| Login Vercel usado | conta `systemhubrj-1717` (já autenticado neste computador via `npx vercel`) |
-| Banco de dados / backend | Supabase (edge functions + Postgres) |
+| Login Vercel usado | conta `systemhubrj-1717` (relogado neste computador em 17/11/2026 via `npx vercel login`) |
+| Banco de dados / backend | Supabase — projeto `systemhub` (id `nktskwrwvnefpyfdpiyu`), organização `systemhubrj-dev's Org` (plano Free). Painel: https://supabase.com/dashboard/project/nktskwrwvnefpyfdpiyu |
 | Domínio de produção | `systemhub.app.br` (alias aponta pra `www.systemhub.app.br`) |
+| DNS do domínio | **Registro.br** (servidores `a.sec.dns.br` / `c.sec.dns.br`) — é lá que se adicionam registros TXT/CNAME |
 | Pagamentos | Mercado Pago (funções `mp-*` dentro de `supabase/functions`) |
+| Busca do Google | Google Search Console — propriedade `systemhub.app.br` (ver seção 11) |
 
 ⚠️ A pasta fica dentro do OneDrive, então ela sincroniza pra nuvem automaticamente. Isso inclui o `.env` (chaves do Supabase) — não é um problema grave, mas evite compartilhar essa pasta publicamente.
 
@@ -39,9 +43,10 @@ SystemHub/
 │   ├── pages/
 │   │   ├── dashboard/        ← telas internas: Clientes, Financeiro, Estoque, Agenda, Caixa, Animais, Pacientes, etc.
 │   │   ├── admin/             ← painel administrativo (AdminAnalytics, AdminClients, AdminImport, etc.)
-│   │   ├── Index.tsx           ← landing page pública
+│   │   ├── BularioPublico.tsx  ← PÁGINA INICIAL (rota "/") — bulário gratuito + chamada pro plano
+│   │   ├── Index.tsx           ← página "Sobre" (rota "/sobre")
 │   │   ├── Login.tsx / Register.tsx / ForgotPassword.tsx / ResetPassword.tsx
-│   │   └── Planos.tsx, Privacidade.tsx
+│   │   └── Planos.tsx (rota "/planos"), Privacidade.tsx
 │   ├── components/            ← componentes reutilizáveis (inclui components/dashboard/AppSidebar.tsx = menu lateral)
 │   ├── integrations/
 │   │   └── supabase/client.ts ← configuração do cliente Supabase (usa as env vars VITE_SUPABASE_*)
@@ -112,6 +117,20 @@ O comando `vercel --prod` builda o projeto na nuvem e, ao terminar, já publica 
 
 Depois do deploy, sempre confira em **https://systemhub.app.br** com um refresh forçado (`Ctrl+Shift+R`) pra não pegar cache antigo do navegador.
 
+Se o `npx vercel` disser "Logged out", rode `npx vercel login`, abra o link que ele mostrar e aprove com a conta `systemhubrj-1717`.
+
+### 7.1 Publicar Edge Functions (backend no Supabase) — passo separado!
+
+⚠️ O `vercel --prod` publica **só o site**. Se você alterar algo em `supabase/functions/` (ex.: preço nas funções `mp-*`), precisa publicar a função no Supabase também — senão o site mostra uma coisa e o backend faz outra (ex.: site mostra um preço e o Mercado Pago cobra outro).
+
+**Como publicar hoje (jeito que funciona):** pelo painel do Supabase, no navegador logado na conta `systemhubrj-dev`:
+1. https://supabase.com/dashboard/project/nktskwrwvnefpyfdpiyu/functions → clique na função → aba **Code**
+2. Edite **só o trecho necessário** → botão **Deploy updates** → confirmar.
+
+**Pelo terminal (CLI):** `npx supabase functions deploy <nome> --project-ref nktskwrwvnefpyfdpiyu` — em 17/11/2026 isso **não funcionou**: os tokens de acesso da conta estavam todos expirados e o CLI deu erro 403. Pra voltar a usar, gere um token novo em https://supabase.com/dashboard/account/tokens e rode, no PowerShell, `npx supabase login --token SEU_TOKEN` (nunca cole o token em chat/IA).
+
+⚠️ **As funções publicadas são diferentes (mais antigas) que as do repositório.** Várias foram publicadas há ~6 meses e nunca atualizadas; o código em `supabase/functions/` evoluiu depois (ex.: usa `../_shared/cors.ts`, que a versão publicada não tem). **Não substitua uma função publicada inteira pelo arquivo do repositório sem comparar antes** — edite só o necessário.
+
 ## 8. Como desfazer uma alteração (rollback)
 
 Se algo quebrar depois de um deploy:
@@ -143,10 +162,27 @@ Essas mesmas variáveis também precisam estar configuradas no painel do Vercel 
 
 ## 10. Coisas boas de saber antes de mexer
 
-- Existiam **alterações não commitadas** de uma sessão anterior quando organizamos essa pasta (17/08/2026): mudanças em `AppSidebar.tsx`, `Clientes.tsx`, `Lembretes.tsx`, `Relatorios.tsx`, várias funções do Supabase, e uma migração nova (`20260812000001_reminders.sql`) — além de vários scripts novos em `scripts/prospecting/`. Isso pode já ter sido resolvido quando você ler isto; rode `git status` pra ver o estado atual antes de mexer, pra não misturar seu pedido com trabalho de outra tarefa.
+- **Estado em 17/11/2026**: `supabase/config.toml` tem alteração não commitada, e há vários scripts novos e não versionados em `scripts/prospecting/` (scraping de leads, envio de e-mail em massa via Brevo, agendamento). Isso pode já ter mudado quando você ler isto; rode `git status` pra ver o estado atual antes de mexer, pra não misturar seu pedido com trabalho de outra tarefa.
+- **Tela de Clientes (tutores)** (`src/pages/dashboard/Clientes.tsx`): mostra os animais de cada tutor como etiquetas clicáveis que abrem o prontuário (`/dashboard/animais/:id`), também dentro da janela de edição; a busca encontra o tutor pelo nome do animal.
+- **Pagamentos — o que está publicado (17/11/2026):** `mp-create-subscription` (cartão), `mp-create-pix` e `mp-create-pix-native` cobram R$ 49,90 e aceitam o plano `vetpro`. Antes disso, as versões publicadas só conheciam os planos antigos e recusavam `vetpro` com "Plano inválido" — ou seja, assinar pelo site provavelmente falhava.
+
+### Pendências conhecidas
+- **Assinantes antigos no cartão** continuam pagando R$ 129,90: o Mercado Pago guarda o valor em cada assinatura já criada. Pra baixar, editar cada uma em Mercado Pago → Seu negócio → Assinaturas.
+- **`mp-check-payment` publicada não valida o valor do PIX pago** (a versão do repositório valida, mas nunca foi publicada). Vale publicar essa validação com cuidado (ver 7.1).
+- **Vercel sem 2FA**: ativar em https://vercel.com/account/settings/authentication
+- **Token do GitHub na URL do remote** (ver aviso na seção 2).
+- A IA do sistema (bulário, clínico, caixa, nutri, vet-assistant) **migrou do gateway da Lovable para a API da Anthropic (Claude)** — commit `607008f`. Se for mexer nas edge functions de IA, é lá que a chamada ao modelo acontece.
 - Os bundles JS de produção estão grandes (alguns acima de 500kB) — o Vite avisa disso no build. Não é erro, é só uma sugestão de otimização (code-splitting) pra considerar no futuro, não bloqueia nada.
 - Há testes E2E com Playwright (`playwright.config.ts`, `playwright-fixture.ts`) — rodar `npx playwright test` se quiser validar fluxos completos antes de um deploy grande.
+- Pasta `scripts/prospecting/` guarda os scripts Python da campanha de captação de leads (scraping do Google Maps/diretórios + disparo de e-mail via Brevo), com logs (`*_log.txt`) e planilha de backup (`leads_backup.xlsx`) — roda automatizado via GitHub Actions todo dia às 10h BRT.
 
-## 11. Resumo rápido pra colar numa IA nova
+## 11. Aparecer no Google (SEO / Search Console)
 
-> "Esse é o projeto SystemHub, um SaaS de gestão veterinária. Fica em `C:\Users\jvito\OneDrive\Desktop\SystemHub`, é React+Vite+TypeScript+Tailwind com Supabase de backend. Deploy é manual via `npx vercel --prod --yes` depois de commitar e dar `git push origin main` (não tem deploy automático). Site em produção: https://systemhub.app.br. Antes de mexer, rode `git status` pra ver o que já está pendente."
+O site não precisa estar hospedado no Google pra aparecer nas buscas — o que importa é estar cadastrado no **Google Search Console**:
+- Já prontos no projeto: `public/robots.txt` (libera Googlebot e aponta o sitemap), `public/sitemap.xml`, e título/descrição/imagem de compartilhamento no `index.html`.
+- Cadastro: https://search.google.com/search-console → propriedade do tipo **Domínio** `systemhub.app.br` → o Google dá um registro **TXT** (`google-site-verification=...`) que vai no DNS do **Registro.br** → verificar → em **Sitemaps** enviar `https://www.systemhub.app.br/sitemap.xml`.
+- Se adicionar páginas públicas novas, inclua-as no `public/sitemap.xml`.
+
+## 12. Resumo rápido pra colar numa IA nova
+
+> "Esse é o projeto SystemHub, um SaaS de gestão veterinária (plano único VetPro, R$ 49,90/mês). Fica em `C:\Users\jvito\OneDrive\Desktop\SystemHub`, é React+Vite+TypeScript+Tailwind com Supabase de backend (projeto `nktskwrwvnefpyfdpiyu`). Deploy do site é manual via `npx vercel --prod --yes` depois de commitar e dar `git push origin main` (não tem deploy automático). Edge functions do Supabase são publicadas à parte, pelo painel do Supabase, e as versões publicadas são mais antigas que o repositório — edite só o necessário. Site em produção: https://systemhub.app.br. Antes de mexer, leia a DOCUMENTACAO.md e rode `git status` pra ver o que já está pendente."
