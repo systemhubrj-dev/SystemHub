@@ -182,6 +182,8 @@ O site não precisa estar hospedado no Google pra aparecer nas buscas — o que 
 - Já prontos no projeto: `public/robots.txt` (libera Googlebot e aponta o sitemap), `public/sitemap.xml`, e título/descrição/imagem de compartilhamento no `index.html`.
 - Cadastro: https://search.google.com/search-console → propriedade do tipo **Domínio** `systemhub.app.br` → o Google dá um registro **TXT** (`google-site-verification=...`) que vai no DNS do **Registro.br** → verificar → em **Sitemaps** enviar `https://www.systemhub.app.br/sitemap.xml`.
 - Se adicionar páginas públicas novas, inclua-as no `public/sitemap.xml`.
+- **Status (17/11/2026): ✅ verificado e sitemap enviado**, na conta Google `jvitor.souza10@gmail.com`. Painel: https://search.google.com/search-console?resource_id=sc-domain:systemhub.app.br
+- ⚠️ **Não apague** o registro TXT `google-site-verification=...` da zona DNS no Registro.br — sem ele o Google perde a verificação.
 
 ## 12. Resumo rápido pra colar numa IA nova
 
