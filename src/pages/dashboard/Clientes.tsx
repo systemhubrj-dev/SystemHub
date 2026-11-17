@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Search, Trash2, Edit, Phone, Mail, Loader2, Lock, MessageCircle } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Phone, Mail, Loader2, Lock, MessageCircle, PawPrint } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { softDeleteRecord } from "@/lib/softDelete";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
@@ -23,6 +24,8 @@ interface Client {
   city: string | null; state: string | null; complement: string | null;
 }
 
+interface ClientPet { id: string; name: string; species: string | null; client_id: string | null; }
+
 const defaultForm = {
   name: "", email: "", phone: "", cpf: "", notes: "", birth_date: "",
   cep: "", street: "", number: "", neighborhood: "", city: "", state: "", complement: "",
@@ -34,6 +37,7 @@ export default function Clientes() {
   const navigate = useNavigate();
   const { canCreateClient, clientCount, config, refresh: refreshLimits } = usePlanLimits();
   const [clients, setClients] = useState<Client[]>([]);
+  const [petsByClient, setPetsByClient] = useState<Record<string, ClientPet[]>>({});
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -43,8 +47,39 @@ export default function Clientes() {
 
   const loadClients = async () => {
     if (!clinicId) return;
-    const { data } = await supabase.from("clients").select("*").eq("user_id", clinicId).order("name");
-    setClients((data as Client[]) ?? []);
+    const [clientsRes, petsRes] = await Promise.all([
+      supabase.from("clients").select("*").eq("user_id", clinicId).order("name"),
+      supabase.from("pets" as any).select("id, name, species, client_id").eq("user_id", clinicId).order("name"),
+    ]);
+    setClients((clientsRes.data as Client[]) ?? []);
+    const grouped: Record<string, ClientPet[]> = {};
+    for (const p of ((petsRes.data as unknown as ClientPet[]) ?? [])) {
+      if (!p.client_id) continue;
+      if (!grouped[p.client_id]) grouped[p.client_id] = [];
+      grouped[p.client_id].push(p);
+    }
+    setPetsByClient(grouped);
+  };
+
+  const renderPets = (clientId: string) => {
+    const pets = petsByClient[clientId] ?? [];
+    if (pets.length === 0) return <span className="text-sm text-muted-foreground">Nenhum animal</span>;
+    return (
+      <div className="flex flex-wrap gap-1">
+        {pets.map((p) => (
+          <Badge
+            key={p.id}
+            variant="secondary"
+            className="cursor-pointer gap-1 hover:bg-primary hover:text-primary-foreground"
+            title={`Abrir prontuário de ${p.name}`}
+            onClick={() => navigate(`/dashboard/animais/${p.id}`)}
+          >
+            <PawPrint className="h-3 w-3" />
+            {p.name}{p.species ? ` · ${p.species}` : ""}
+          </Badge>
+        ))}
+      </div>
+    );
   };
 
   useEffect(() => { loadClients(); }, [clinicId]);
@@ -157,7 +192,10 @@ export default function Clientes() {
     setDialogOpen(true);
   };
 
-  const filtered = clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search));
+  const q = search.toLowerCase();
+  const filtered = clients.filter((c) =>
+    c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.includes(search) ||
+    (petsByClient[c.id] ?? []).some((p) => p.name.toLowerCase().includes(q)));
 
   return (
     <div className="space-y-6">
@@ -237,6 +275,12 @@ export default function Clientes() {
               </div>
 
               <div className="space-y-2"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+              {editId && (
+                <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                  <Label className="text-sm font-semibold flex items-center gap-1"><PawPrint className="h-4 w-4" />Animais do tutor</Label>
+                  {renderPets(editId)}
+                </div>
+              )}
               <Button onClick={handleSave} className="w-full" disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
               </Button>
@@ -248,7 +292,7 @@ export default function Clientes() {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar clientes..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Input placeholder="Buscar tutor ou animal..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
       <Card>
@@ -257,6 +301,7 @@ export default function Clientes() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Animais</TableHead>
                 <TableHead className="hidden md:table-cell">Contato</TableHead>
                 <TableHead className="hidden lg:table-cell">CPF</TableHead>
                 <TableHead className="w-[140px]">Ações</TableHead>
@@ -264,11 +309,12 @@ export default function Clientes() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhum cliente encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5}className="text-center text-muted-foreground py-8">Nenhum cliente encontrado</TableCell></TableRow>
               ) : (
                 filtered.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>{renderPets(c.id)}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       <div className="space-y-1 text-sm">
                         {c.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{c.email}</div>}
